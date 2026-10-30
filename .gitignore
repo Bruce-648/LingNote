@@ -15,3 +15,7 @@ library-location.json
 # Keep downloaded speech models local
 /assets/ggml-*.bin
 /assets/ggml-*.bin.download
+
+# Installer toolchain and downloaded redistributables (keep local)
+/tools/Inno/
+/assets/vc_redist.x64.exe

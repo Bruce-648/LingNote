@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Exclude packaging dependencies and scripts from application language statistics
+tools/Inno/** linguist-vendored
+tools/*.iss linguist-detectable=false
+tools/*.isl linguist-detectable=false
+docs/** linguist-documentation
