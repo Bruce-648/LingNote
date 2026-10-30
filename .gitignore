@@ -1,0 +1,17 @@
+.packages/
+**/bin/
+**/obj/
+artifacts/
+.data/
+*.user
+app/
+Data/
+recovery/
+.tools/
+library-location.json
+*.lnk
+
+
+# Keep downloaded speech models local
+/assets/ggml-*.bin
+/assets/ggml-*.bin.download

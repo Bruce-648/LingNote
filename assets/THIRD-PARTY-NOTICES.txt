@@ -1,0 +1,12 @@
+LingNote third-party components
+
+NAudio 2.2.1: MIT. Copyright Mark Heath and contributors. See licenses/NAudio.txt.
+Whisper.net and native whisper.cpp runtime 1.9.1: MIT. See licenses/Whisper.net.txt and licenses/WHISPER-LICENSE.txt.
+OpenAI Whisper small multilingual model: MIT. See licenses/WHISPER-LICENSE.txt. Model source and SHA-256: models/model-manifest.json.
+Markdig 0.40.0: BSD-2-Clause, Copyright Alexandre Mutel. See licenses/Markdig-LICENSE.txt.
+.NET Windows Desktop runtime: Microsoft, MIT. See licenses/WindowsDesktop.txt and runtime ThirdPartyNotices.txt.
+Microsoft.Data.Sqlite 10.0.0 and SQLitePCLRaw 3.0.2: MIT / Apache-2.0. SQLite engine: public domain.
+Microsoft Visual C++ Redistributable: Microsoft runtime redistribution terms, included as Microsoft's signed installer.
+Inno Setup: installer compiler, not part of the application runtime. See https://jrsoftware.org/isinfo.php.
+
+The application logo and wordmark were generated for this project with the built-in imagegen tool. Controls use native vector drawings. No Huaban image was copied into this application.
