@@ -4,10 +4,10 @@
   <p><strong>让声音，成为随时可查的笔记。</strong></p>
   <p>系统录音 · 本地转写 · AI 整理</p>
   <p>
-    <a href="https://github.com/Bruce-648/LingNote/releases"><img src="https://img.shields.io/badge/version-0.1.33-2563EB?style=flat-square" alt="版本 0.1.33" /></a>
+    <a href="https://github.com/Bruce-648/LingNote/releases"><img src="assets/badges/version.svg" alt="版本 0.1.33" /></a>
     <img src="https://img.shields.io/badge/platform-Windows_11_x64-0078D4?style=flat-square" alt="Windows 11 x64" />
     <img src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square" alt=".NET 10" />
-    <img src="https://img.shields.io/badge/ASR-local_Whisper-222222?style=flat-square" alt="Whisper 本地转写" />
+    <img src="assets/badges/local-whisper.svg" alt="Whisper 本地转写" />
   </p>
   <p>
     <a href="https://github.com/Bruce-648/LingNote/releases/latest"><strong>下载最新版</strong></a>
