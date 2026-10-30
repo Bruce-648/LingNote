@@ -32,6 +32,32 @@ internal static class UpdateChecks
             try{await service.Latest(default);throw new Exception("Invalid checksum accepted");}catch(IOException){check(true,"缺失或格式错误的校验信息不会被用于安装");}
         }
         using(var service=new UpdateService(new Handler(request=>request.RequestUri!.Host=="api.github.com"?Json(Manifest(checksum:true)):new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(hash+"  "+name)})))check((await service.Latest(default))!.Sha256==hash,"兼容独立 sha256 附件且核对对应安装包文件名");
+        var primaryCalls=0;var directCalls=0;
+        using(var service=new UpdateService(new Handler(_=>{primaryCalls++;return new HttpResponseMessage(HttpStatusCode.Forbidden){Content=new StringContent("API rate limit exceeded")};}),new Handler(request=>{directCalls++;return request.RequestUri!.Host=="api.github.com"?Json(Manifest()):Bytes(payload);}))) {
+            var fallbackRelease=(await service.Latest(default))!;
+            await service.Download(fallbackRelease,Path.Combine(root,"fallback-download"),null,default);
+            check(primaryCalls==1&&directCalls==2,"代理返回限流后自动直连，后续下载复用可用连接");
+        }
+        using(var service=new UpdateService(new Handler(_=>throw new HttpRequestException("Proxy unavailable")),new Handler(_=>Json(Manifest()))))check((await service.Latest(default))!.Version==release.Version,"代理连接失败时通过直连完成检查");
+        directCalls=0;
+        using(var service=new UpdateService(new Handler(_=>Json(Manifest())),new Handler(_=>{directCalls++;return Json(Manifest());}))) {await service.Latest(default);check(directCalls==0,"当前网络正常时不额外发送直连请求");}
+        using(var service=new UpdateService(new Handler(_=>new HttpResponseMessage(HttpStatusCode.Forbidden){Content=new StringContent("Resource not accessible")}))) {
+            try{await service.Latest(default);throw new Exception("Forbidden request accepted");}catch(IOException ex){check(ex.Message.Contains("HTTP 403")&&!ex.Message.Contains("暂时受限"),"普通 403 不会被误报为 GitHub 限流");}
+        }
+        using(var service=new UpdateService(new Handler(_=>{
+            var response=new HttpResponseMessage(HttpStatusCode.Forbidden){Content=new StringContent("API rate limit exceeded")};response.Headers.TryAddWithoutValidation("X-RateLimit-Remaining","0");response.Headers.TryAddWithoutValidation("X-RateLimit-Reset",DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds().ToString());return response;
+        }))) {
+            try{await service.Latest(default);throw new Exception("Rate limit ignored");}catch(IOException ex){check(ex.Message.Contains("后重试")&&ex.Message.Contains(':'),"真实限流提示响应头给出的恢复时间");}
+        }
+        using(var service=new UpdateService(new Handler(_=>{
+            var response=new HttpResponseMessage(HttpStatusCode.TooManyRequests){Content=new StringContent("Too many requests")};response.Headers.RetryAfter=new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(60));return response;
+        }))) {
+            try{await service.Latest(default);throw new Exception("Retry-After ignored");}catch(IOException ex){check(ex.Message.Contains("后重试")&&ex.Message.Contains(':'),"429 按 Retry-After 显示稍后重试时间");}
+        }
+        directCalls=0;
+        using(var service=new UpdateService(new Handler(_=>throw new OperationCanceledException()),new Handler(_=>{directCalls++;return Json(Manifest());})))using(var cancelled=new CancellationTokenSource()) {
+            cancelled.Cancel();try{await service.Latest(cancelled.Token);throw new Exception("Cancellation ignored");}catch(OperationCanceledException){check(directCalls==0,"用户取消时不再发起备用连接");}
+        }
         var folder=Path.Combine(root,"updates-test");var progress=new InlineProgress();string target;
         using(var service=new UpdateService(new Handler(_=>Bytes(payload))))target=await service.Download(release,folder,progress,default);
         check(File.ReadAllBytes(target).SequenceEqual(payload)&&!File.Exists(target+".download")&&progress.Messages.Any(s=>s.Contains("下载完成")),"更新包完整下载校验后原子保存，不留下半成品");

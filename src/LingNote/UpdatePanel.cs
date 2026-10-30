@@ -28,7 +28,7 @@ public sealed class UpdatePanel : StackPanel
                 if(release==null)status.Text="暂未找到正式发布版本，请稍后再试。";
                 else if(release.Version<=UpdateService.CurrentVersion)status.Text="当前已是最新版本。";
                 else {status.Text=$"发现新版本 {release.Version.ToString(3)} · {release.Size/1048576d:F1} MB";notes.Text=string.IsNullOrWhiteSpace(release.Notes)?"此版本暂无更新说明。":release.Notes;notes.Visibility=Visibility.Visible;action.Content="下载更新";action.Visibility=Visibility.Visible;}
-            }catch(OperationCanceledException){status.Text="检查超时或已取消，请重试。";}catch(Exception ex){status.Text="检查失败："+ex.Message+" 请检查网络后重试。";}finally{check.IsEnabled=true;cancellation.Dispose();cancellation=null;}
+            }catch(OperationCanceledException){status.Text="检查超时或已取消，请重试。";}catch(System.Net.Http.HttpRequestException){status.Text="检查失败：无法连接 GitHub，请检查网络或代理后重试。";}catch(Exception ex){status.Text="检查失败："+ex.Message;}finally{check.IsEnabled=true;cancellation.Dispose();cancellation=null;}
         };
         action.Click+=async(_,_)=>{
             if(release==null)return;

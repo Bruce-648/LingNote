@@ -1,10 +1,11 @@
 <div align="center">
   <img src="src/LingNote/Assets/app-logo.png" alt="LingNote" width="76" />
   <h1>LingNote</h1>
+  <p><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
   <p><strong>让声音，成为随时可查的笔记。</strong></p>
   <p>系统录音 · 本地转写 · AI 整理</p>
   <p>
-    <a href="https://github.com/Bruce-648/LingNote/releases"><img src="assets/badges/version.svg" alt="版本 0.1.33" /></a>
+    <a href="https://github.com/Bruce-648/LingNote/releases"><img src="assets/badges/version.svg" alt="版本 0.1.34" /></a>
     <img src="https://img.shields.io/badge/platform-Windows_11_x64-0078D4?style=flat-square" alt="Windows 11 x64" />
   </p>
   <p>
@@ -55,7 +56,7 @@
 
 ## 开发与反馈
 
-源码运行、测试与打包步骤见 **[开发文档](docs/DEVELOPMENT.md)**。版本变化见 **[更新说明](assets/RELEASE-NOTES-0.1.33.md)**。
+源码运行、测试与打包步骤见 **[开发文档](docs/DEVELOPMENT.md)**。版本变化见 **[更新说明](assets/RELEASE-NOTES-0.1.34.md)**。
 
 遇到问题或有功能建议，欢迎提交 **[Issue](https://github.com/Bruce-648/LingNote/issues)**。
 

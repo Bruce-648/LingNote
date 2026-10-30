@@ -1,5 +1,5 @@
 #define AppName "LingNote"
-#define AppVersion "0.1.33"
+#define AppVersion "0.1.34"
 [Setup]
 AppId={{E79C5407-988D-4A79-9061-F1B02C792993}
 AppName={#AppName}
@@ -13,7 +13,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 OutputDir=..\artifacts
-OutputBaseFilename=LingNote-0.1.33-Setup
+OutputBaseFilename=LingNote-0.1.34-Setup
 Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern

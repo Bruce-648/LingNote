@@ -10,6 +10,7 @@ using NAudio.Wave;
 
 if(args.Contains("--ui-check")) { SidebarUiChecks.Run(); return; }
 if(args.Contains("--floating-preview")) { SidebarUiChecks.Preview(); return; }
+if(args.Contains("--check-update-live")) {using var updateService=new UpdateService();var latest=await updateService.Latest(CancellationToken.None);Console.WriteLine(latest==null?"No published release":$"Latest release: {latest.Version}; verified asset: {latest.FileName}");return;}
 if(args.Contains("--read-settings")) {var saved=Preferences.Load();Environment.Exit(saved.GetKey()=="test-placeholder-only" && saved.Model=="test" && saved.BaseUrl=="http://127.0.0.1:18766/v1"?0:1);return;}
 var testRoot=Path.Combine(AppContext.BaseDirectory,"test-data",Guid.NewGuid().ToString("N"));
 Environment.SetEnvironmentVariable("LINGNOTE_DATA",testRoot);
