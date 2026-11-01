@@ -1,5 +1,5 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-<PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><Version>0.3.0</Version><ApplicationIcon>Assets/app.ico</ApplicationIcon></PropertyGroup>
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><Version>0.3.1</Version><ApplicationIcon>Assets/app.ico</ApplicationIcon></PropertyGroup>
 <ItemGroup><Using Remove="System.Windows.Forms"/><Using Remove="System.Drawing"/>
 <PackageReference Include="NAudio" Version="2.2.1"/><PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0"/><PackageReference Include="Whisper.net" Version="1.9.1"/><PackageReference Include="Whisper.net.Runtime" Version="1.9.1"/><PackageReference Include="Markdig" Version="0.40.0"/><PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2"/></ItemGroup>
 <ItemGroup><Resource Include="Assets/*.png"/><Resource Include="Assets/Settings/*.png"/><Resource Include="Assets/Fonts/Geist-Regular.ttf"/><Resource Include="Assets/app.ico"/></ItemGroup></Project>

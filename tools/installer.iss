@@ -1,6 +1,6 @@
-﻿#define AppName "LingNote"
+#define AppName "LingNote"
 #ifndef AppVersion
-#define AppVersion "0.3.0"
+#define AppVersion "0.3.1"
 #endif
 #ifndef PublishRoot
   #define PublishRoot "..\app"
