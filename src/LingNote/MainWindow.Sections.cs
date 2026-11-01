@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -46,7 +46,7 @@ public partial class MainWindow
         DockPanel.SetDock(actions,Dock.Right);item.Children.Add(actions);
         var title=new TextBlock {DataContext=course,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis};title.SetBinding(TextBlock.TextProperty,new System.Windows.Data.Binding(nameof(Course.Title)));
         var open=new Button {Content=title,HorizontalContentAlignment=HorizontalAlignment.Left,FontSize=14,Foreground=new SolidColorBrush(Color.FromRgb(75,75,75)),Padding=new Thickness(indent,3,4,3),Margin=new Thickness(0),Background=Brushes.Transparent};
-        item.Children.Add(open);var background=new Border {CornerRadius=new CornerRadius(9),Margin=new Thickness(0,1,0,1),Child=item,Tag=course};
+        var check=CreateBulkCheck(course);item.Children.Add(check);item.Children.Add(open);var background=new Border {CornerRadius=new CornerRadius(9),Margin=new Thickness(0,1,0,1),Child=item,Tag=course};
         topicRecordRows[course.Id]=background;parent.Children.Add(background);RevealActions(item,actions);
         item.MouseEnter+=(_,_)=>{if(selected?.Id!=course.Id)background.Background=new SolidColorBrush(Color.FromRgb(245,245,245));};
         item.MouseLeave+=(_,_)=>{HighlightTopicRecord();};
@@ -105,7 +105,7 @@ public partial class MainWindow
     }
     private void SectionMenu(FrameworkElement anchor,LibrarySection section)
     {
-        if(!CanOrganize)return;var menu=new ActionPopup(anchor,width:180);recordMenu=menu;
+        var menu=new ActionPopup(anchor,width:180);recordMenu=menu;menu.Add("批量选择","checks",()=>BeginBulkSelection("section",section.Id,section.Name));if(!CanOrganize){menu.Open();return;}menu.Separator();
         menu.Add("编辑分区","edit",()=>{
             var name=TextPrompt.Ask(this,"重命名分区",section.Name);if(name==null)return;
             if(name is "主题" or "未分区"||prefs.Sections.Any(s=>s.Id!=section.Id&&string.Equals(s.Name,name,StringComparison.OrdinalIgnoreCase))){Hint.Text="这个分区名称已存在。";return;}

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -54,7 +54,7 @@ public partial class MainWindow
     }
     private void UpdateControls()
     {
-        if(StartButton==null)return;
+        if(StartButton==null)return;UpdateBulkSelection();
         ProcessingHint.SetRunning(busy);Hint.Visibility=busy?Visibility.Collapsed:Visibility.Visible;
         ClassroomSaved.Text=EnhancedSaved.Text=selected==null?"":editorDirty?"正在保存…":savedAt.TryGetValue(selected.Id,out var saved)?"已保存 "+saved.ToString("HH:mm"):"已保存";
         bool active=recording!=null,has=selected!=null,viewingRecording=active&&selected?.Id==recording!.Id;
@@ -122,7 +122,7 @@ public partial class MainWindow
     private void UnassignedToggle_Click(object sender,RoutedEventArgs e) {unassignedCollapsed=!unassignedCollapsed;UpdateSections();}
     private void AppMenu_Click(object sender,RoutedEventArgs e)
     {
-        var menu=new ActionPopup((FrameworkElement)sender,width:160);menu.Add("新录音","plus",()=>New_Click(this,new RoutedEventArgs()),recording==null);menu.Add("设置","settings",()=>Settings_Click(this,new RoutedEventArgs()),!busy&&recording==null);menu.Separator();menu.Add("退出","close",Exit);menu.Open();
+        var menu=new ActionPopup((FrameworkElement)sender,width:160);menu.Add("新录音","plus",()=>New_Click(this,new RoutedEventArgs()),recording==null);menu.Add("设置","settings",()=>Settings_Click(this,new RoutedEventArgs()),true);menu.Separator();menu.Add("退出","close",Exit);menu.Open();
     }
     private void EditMenu_Click(object sender,RoutedEventArgs e)
     {
@@ -137,7 +137,7 @@ public partial class MainWindow
     private bool showAllTopics;
     private void Group_Click(object sender,RoutedEventArgs e)
     {
-        var menu=new ActionPopup((FrameworkElement)sender,width:164);menu.Add("按时间排列","restore",()=>SetGrouping(false));menu.Add("按天分组","folder",()=>SetGrouping(true));menu.Separator();menu.Add("新建分区","plus",CreateSection);menu.Open();
+        var menu=new ActionPopup((FrameworkElement)sender,width:164);menu.Add("批量选择","checks",()=>BeginBulkSelection("unassigned","","未分区"));menu.Separator();menu.Add("按时间排列","restore",()=>SetGrouping(false));menu.Add("按天分组","folder",()=>SetGrouping(true));menu.Separator();menu.Add("新建分区","plus",CreateSection);menu.Open();
     }
     private void SetGrouping(bool topic) {SaveEditor();prefs.GroupUnassignedByDay=topic;prefs.Save();RefreshHistory(selected?.Id);}
     private void History_RightClick(object sender,MouseButtonEventArgs e)
@@ -165,8 +165,9 @@ public partial class MainWindow
     private void AddTopic_Click(object sender,RoutedEventArgs e)
     {
         if(busy||recording!=null)return;
-        var name=TextPrompt.Ask(this,"创建主题","");if(name==null)return;
+        var created=TextPrompt.CreateTopic(this);if(created==null)return;var name=created.Value.Name;
         if(prefs.Topics.Concat(store.All().Select(c=>c.Topic)).Any(t=>string.Equals(t,name,StringComparison.OrdinalIgnoreCase))){Hint.Text="这个主题已经存在。";return;}
+        if(created.Value.Folder is string folder)prefs.TopicScreenshotDirectories[name]=folder;
         prefs.Topics.Add(name);if(draftSection.Length>0)prefs.TopicSections[name]=draftSection;prefs.GroupByTopic=true;prefs.Save();SetActiveTopic(name);New_Click(this,new RoutedEventArgs());RefreshHistory();Hint.Text="主题已创建。";
     }
     private void SetActiveTopic(string topic) {draftTopic=topic;if(topic.Length>0)draftSection=LibrarySections.TopicSection(prefs,topic);if(prefs.ActiveSection!=draftSection||prefs.ActiveTopic!=topic){prefs.ActiveTopic=topic;prefs.ActiveSection=draftSection;prefs.Save();}}
@@ -182,10 +183,12 @@ public partial class MainWindow
     }
     private void TopicMenu(FrameworkElement anchor,string topic)
     {
-        if(busy||recording!=null)return;anchor.Focus();var menu=new ActionPopup(anchor);recordMenu=menu;
+        anchor.Focus();var menu=new ActionPopup(anchor);recordMenu=menu;menu.Add("批量选择","checks",()=>BeginBulkSelection("topic",topic,topic));if(busy||recording!=null){menu.Open();return;}menu.Separator();
+        menu.Add("截屏保存文件夹…","folder",()=>{var picker=new Microsoft.Win32.OpenFolderDialog {Title="选择「"+topic+"」的截屏保存文件夹"};if(picker.ShowDialog(this)==true){prefs.TopicScreenshotDirectories[topic]=picker.FolderName;prefs.Save();}});
+        menu.Add("使用默认截屏目录","restore",()=>{prefs.TopicScreenshotDirectories.Remove(topic);prefs.Save();});menu.Separator();
         menu.Add("移至分区…","folder",()=>ChooseSection(anchor,true,topic,null));
-        menu.Add("重命名主题","edit",()=>{var name=TextPrompt.Ask(this,"重命名主题",topic);if(name==null||name==topic)return;if(prefs.Topics.Concat(store.All().Select(c=>c.Topic)).Any(t=>string.Equals(t,name,StringComparison.OrdinalIgnoreCase))){Hint.Text="主题名称已存在。";return;}SaveEditor();foreach(var c in store.All().Where(c=>c.Topic==topic)){c.Topic=name;store.Save(c);}if(selected?.Topic==topic)selected.Topic=name;prefs.Topics.Remove(topic);prefs.Topics.Add(name);if(prefs.TopicSections.Remove(topic,out var section))prefs.TopicSections[name]=section;if(draftTopic==topic)SetActiveTopic(name);prefs.Save();RefreshHistory(selected?.Id);});
-        menu.Add("删除主题","trash",()=>{SaveEditor();foreach(var c in store.All().Where(c=>c.Topic==topic)){c.SectionId=LibrarySections.TopicSection(prefs,topic);c.Topic="";store.Save(c);}if(selected?.Topic==topic){selected.SectionId=LibrarySections.TopicSection(prefs,topic);selected.Topic="";}prefs.Topics.Remove(topic);prefs.TopicSections.Remove(topic);if(draftTopic==topic)SetActiveTopic("");prefs.Save();RefreshHistory(selected?.Id);Hint.Text="主题已删除，录音已移至未分区。";});
+        menu.Add("重命名主题","edit",()=>{var name=TextPrompt.Ask(this,"重命名主题",topic);if(name==null||name==topic)return;if(prefs.Topics.Concat(store.All().Select(c=>c.Topic)).Any(t=>string.Equals(t,name,StringComparison.OrdinalIgnoreCase))){Hint.Text="主题名称已存在。";return;}SaveEditor();foreach(var c in store.All().Where(c=>c.Topic==topic)){c.Topic=name;store.Save(c);}if(selected?.Topic==topic)selected.Topic=name;prefs.Topics.Remove(topic);prefs.Topics.Add(name);if(prefs.TopicScreenshotDirectories.Remove(topic,out var screenshotFolder))prefs.TopicScreenshotDirectories[name]=screenshotFolder;if(prefs.TopicSections.Remove(topic,out var section))prefs.TopicSections[name]=section;if(draftTopic==topic)SetActiveTopic(name);prefs.Save();RefreshHistory(selected?.Id);});
+        menu.Add("删除主题","trash",()=>{SaveEditor();foreach(var c in store.All().Where(c=>c.Topic==topic)){c.SectionId=LibrarySections.TopicSection(prefs,topic);c.Topic="";store.Save(c);}if(selected?.Topic==topic){selected.SectionId=LibrarySections.TopicSection(prefs,topic);selected.Topic="";}prefs.Topics.Remove(topic);prefs.TopicSections.Remove(topic);prefs.TopicScreenshotDirectories.Remove(topic);if(draftTopic==topic)SetActiveTopic("");prefs.Save();RefreshHistory(selected?.Id);Hint.Text="主题已删除，录音已移至未分区。";});
         Dispatcher.BeginInvoke(()=>menu.Open(),DispatcherPriority.ContextIdle);
     }
     private DismissibleWindow? trayMenu;

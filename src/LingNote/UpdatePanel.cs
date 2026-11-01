@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -17,10 +17,11 @@ public sealed class UpdatePanel : StackPanel
     public bool IsDownloading {get;private set;}
     public UpdatePanel(Action<string,string> install)
     {
-        var heading=new DockPanel();DockPanel.SetDock(check,Dock.Right);check.Margin=new Thickness(0);check.Height=42;check.Padding=new Thickness(28,10,28,10);heading.Children.Add(check);heading.Children.Add(new TextBlock {Text="应用更新",FontSize=24,FontWeight=FontWeights.SemiBold});Children.Add(heading);
-        Children.Add(new TextBlock {Text="当前版本 "+UpdateService.DisplayVersion,Foreground=Brushes.Gray,Margin=new Thickness(0,12,0,0),FontSize=14});
-        var options=UpdatePreferences.Load();var auto=new CheckBox {Content="启动时自动检查更新",IsChecked=options.AutoCheck,Margin=new Thickness(0,12,0,0)};Children.Add(auto);
+        var heading=new DockPanel();DockPanel.SetDock(check,Dock.Right);check.Margin=new Thickness(0);check.Height=34;check.Padding=new Thickness(14,6,14,6);heading.Children.Add(check);var title=new StackPanel {Orientation=Orientation.Horizontal};title.Children.Add(SettingsIcons.Image("restore",21));title.Children.Add(new TextBlock {Text="应用更新",FontSize=17,FontWeight=FontWeights.SemiBold,Margin=new Thickness(10,0,0,0)});heading.Children.Add(title);Children.Add(heading);
+        Children.Add(new TextBlock {Text="当前版本 "+UpdateService.DisplayVersion,Foreground=Brushes.Gray,Margin=new Thickness(31,0,0,0),FontSize=13});
+        var options=UpdatePreferences.Load();var auto=new CheckBox {Content="启动时自动检查更新",IsChecked=options.AutoCheck,Margin=new Thickness(31,8,0,0)};Children.Add(auto);
         auto.Checked+=(_,_)=>{options.AutoCheck=true;options.Save();};auto.Unchecked+=(_,_)=>{options.AutoCheck=false;options.Save();};
+        var statusStyle=new Style(typeof(TextBlock));var empty=new Trigger {Property=TextBlock.TextProperty,Value=""};empty.Setters.Add(new Setter(VisibilityProperty,Visibility.Collapsed));statusStyle.Triggers.Add(empty);status.Style=statusStyle;
         var buttons=new WrapPanel();buttons.Children.Add(action);buttons.Children.Add(cancel);Children.Add(buttons);Children.Add(status);Children.Add(notes);
         check.Click+=async(_,_)=>{
             check.IsEnabled=false;action.Visibility=Visibility.Collapsed;notes.Visibility=Visibility.Collapsed;installer=null;release=null;status.Text="正在检查 GitHub 上的新版本…";cancellation=new();

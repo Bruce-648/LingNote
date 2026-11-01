@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -44,6 +44,7 @@ public sealed class NoteService
     }
     public async Task<string> Request(Preferences config,string system,string content,Action<string>? delta,CancellationToken ct)
     {
+        using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(config.RequestTimeoutSeconds,30,600)));ct=timeout.Token;
         var timer=System.Diagnostics.Stopwatch.StartNew(); double? firstToken=null;
         var key=config.GetKey(); if(string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("请先在设置中填写 API Key。");
         if(string.IsNullOrWhiteSpace(config.Model)) throw new InvalidOperationException("请填写模型名称。");

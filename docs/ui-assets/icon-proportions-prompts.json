@@ -1,0 +1,18 @@
+{
+  "mode": "Built-in image_gen",
+  "transparent_background": true,
+  "prompts": [
+    {
+      "name": "mic",
+      "prompt": "Use case: logo-brand. Asset type: LingNote settings navigation transparent PNG. Generate one isolated icon: a compact microphone with a short upright rounded capsule, a broad U-shaped cradle, a short stem and a horizontal foot. The complete natural silhouette is 14 units wide by 16 units tall; do not make the capsule squat or flattened. Modern flat minimalist outline icon. Uniform charcoal #22262C stroke, rounded caps and joins, 1.8-unit stroke in conceptual 24x24 square canvas. Icon centered in a 16x16 optical area, consistent 4-unit transparent margins. Symmetrical accurate proportions. Readable at 18px; crisp edges with few details. Truly transparent background and alpha channel. No text, no tile, no shadows, no gradients, no extra symbols. Do not stretch the design to fill the square canvas."
+    },
+    {
+      "name": "restore",
+      "prompt": "Use case: logo-brand. Asset type: LingNote settings navigation transparent PNG. Generate one isolated icon: two simple curved update arrows following one geometrically circular path, with two small clear arrowheads. The overall outline is exactly circular, 16 units wide by 16 units tall, never elliptical. Modern flat minimalist outline icon. Uniform charcoal #22262C stroke, rounded caps and joins, 1.8-unit stroke in conceptual 24x24 square canvas. Icon centered in a 16x16 optical area, consistent 4-unit transparent margins. Symmetrical accurate proportions. Readable at 18px; crisp edges with few details. Truly transparent background and alpha channel. No text, no tile, no shadows, no gradients, no extra symbols. Do not stretch the design to fill the square canvas."
+    },
+    {
+      "name": "database",
+      "prompt": "Use case: logo-brand. Asset type: LingNote settings navigation transparent PNG. Generate one isolated icon: a small upright database cylinder with a gently curved elliptical top and two horizontal curved bands. Natural overall outline 15 units wide by 16 units tall; do not flatten or widen the cylinder. Modern flat minimalist outline icon. Uniform charcoal #22262C stroke, rounded caps and joins, 1.8-unit stroke in conceptual 24x24 square canvas. Icon centered in a 16x16 optical area, consistent 4-unit transparent margins. Symmetrical accurate proportions. Readable at 18px; crisp edges with few details. Truly transparent background and alpha channel. No text, no tile, no shadows, no gradients, no extra symbols. Do not stretch the design to fill the square canvas."
+    }
+  ]
+}

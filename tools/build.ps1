@@ -2,6 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $projectRoot
+$releaseVersion = ([xml](Get-Content -LiteralPath 'src/LingNote/LingNote.csproj' -Raw)).Project.PropertyGroup.Version
 $publishArguments = @('publish','src/LingNote','-c','Release','-r','win-x64','--self-contained','true','-p:PublishSingleFile=false','-o','app')
 if ($SkipRestore) { $publishArguments += '--no-restore' } else { $publishArguments += @('--configfile','NuGet.Config') }
 & dotnet @publishArguments
@@ -17,9 +18,9 @@ Copy-Item assets/WHISPER-LICENSE.txt app/licenses/
 Copy-Item .packages/naudio/2.2.1/license.txt app/licenses/NAudio.txt
 Copy-Item .packages/whisper.net/1.9.1/LICENSE app/licenses/Whisper.net.txt
 Copy-Item .packages/microsoft.windowsdesktop.app.runtime.win-x64/10.0.12/LICENSE app/licenses/WindowsDesktop.txt
-& tools/Inno/ISCC.exe tools/installer.iss
+& tools/Inno/ISCC.exe "/DAppVersion=$releaseVersion" tools/installer.iss
 if ($LASTEXITCODE -ne 0) { throw '安装包编译失败' }
-$releaseInstaller = Get-Item artifacts/0.2.0/LingNote-0.2.0-Setup.exe
+$releaseInstaller = Get-Item (Join-Path "artifacts/$releaseVersion" "LingNote-$releaseVersion-Setup.exe")
 $releaseHash = (Get-FileHash -LiteralPath $releaseInstaller.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText($releaseInstaller.FullName+'.sha256', $releaseHash+'  '+$releaseInstaller.Name+[Environment]::NewLine, [Text.Encoding]::ASCII)
 Get-FileHash -LiteralPath $releaseInstaller.FullName -Algorithm SHA256 | Format-List

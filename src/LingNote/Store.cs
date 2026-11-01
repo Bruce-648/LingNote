@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using System.Text.Json;
 using System.IO;
 
@@ -40,11 +40,16 @@ public sealed class Store
     {
         lock(gate) { using var c=Open(); using var q=c.CreateCommand(); q.CommandText="SELECT document FROM courses ORDER BY created DESC"; using var r=q.ExecuteReader(); var list=new List<Course>(); while(r.Read()) { var course=JsonSerializer.Deserialize<Course>(r.GetString(0)); if(course!=null) list.Add(course); } return list; }
     }
-    public void Delete(Course course)
+    public void Delete(Course course)=>DeleteMany([course]);
+    public void DeleteMany(IEnumerable<Course> courses)
     {
-        lock(gate) { using var c=Open(); using var transaction=c.BeginTransaction(); using var q=c.CreateCommand(); q.Transaction=transaction; q.CommandText="INSERT OR IGNORE INTO deleted_courses VALUES($id); DELETE FROM courses WHERE id=$id"; q.Parameters.AddWithValue("$id",course.Id); q.ExecuteNonQuery(); transaction.Commit(); }
+        var targets=courses.DistinctBy(course=>course.Id).ToList();if(targets.Count==0)return;
+        lock(gate) {
+            using var c=Open();using var transaction=c.BeginTransaction();
+            foreach(var course in targets){using var q=c.CreateCommand();q.Transaction=transaction;q.CommandText="INSERT OR IGNORE INTO deleted_courses VALUES($id); DELETE FROM courses WHERE id=$id";q.Parameters.AddWithValue("$id",course.Id);q.ExecuteNonQuery();}
+            transaction.Commit();
+        }
         var root=Path.GetFullPath(Path.Combine(Paths.Root,"recordings"))+Path.DirectorySeparatorChar;
-        var folder=Path.GetFullPath(course.Folder);
-        if(folder.StartsWith(root,StringComparison.OrdinalIgnoreCase) && Directory.Exists(folder)) { try {Directory.Delete(folder,true);} catch(IOException) {} catch(UnauthorizedAccessException) {} }
+        foreach(var course in targets){var folder=Path.GetFullPath(course.Folder);if(folder.StartsWith(root,StringComparison.OrdinalIgnoreCase)&&Directory.Exists(folder)){try{Directory.Delete(folder,true);}catch(IOException){}catch(UnauthorizedAccessException){}}}
     }
 }

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -35,14 +35,14 @@ internal static class SidebarUiChecks
             Invoke("TranscriptTab_Click",window,new RoutedEventArgs());Check(new TextRange(Field<RichTextBox>("Preview").Document.ContentStart,Field<RichTextBox>("Preview").Document.ContentEnd).Text.Contains("[00:00:00]"),"原始转写保留时间戳");
             Invoke("Settings_Click",window,new RoutedEventArgs());Wait(120);
             Check(Field<ContentControl>("SettingsHost").IsVisible&&!Field<Grid>("Workspace").IsVisible,"设置嵌入主窗口并保留侧栏");Snapshot(window,"artifacts/ui-refactor/02-settings.png");
-            Check(!Visuals<Expander>(window).Single().IsExpanded,"高级设置默认折叠");
-            var advanced=Visuals<Expander>(window).Single();advanced.IsExpanded=true;Wait(120);advanced.BringIntoView();Wait(120);
-            Check(!Visuals<TextBlock>(window).Any(t=>t.Text=="思考参数协议")&&Visuals<ComboBox>(window).Count()==2,"高级设置仅展示笔记模式与思考模式两个选择器");
+            Check(Field<Border>("Sidebar").Visibility==Visibility.Collapsed,"设置完整替换主侧栏");
+            Visuals<Button>(window).Single(b=>b.Tag?.ToString()=="常规").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Wait(120);
+            Check(!Visuals<TextBlock>(window).Any(t=>t.Text=="思考参数协议")&&Visuals<ComboBox>(window).Count()==2,"常规分类保留笔记模式与思考模式");
             Snapshot(window,"artifacts/ui-refactor/08-advanced-settings.png");
             var choice=Visuals<ComboBox>(window).Single(c=>c.Items.Contains("Low"));choice.IsDropDownOpen=true;Wait(180);
             var popup=(System.Windows.Controls.Primitives.Popup)choice.Template.FindName("PART_Popup",choice);var menu=(FrameworkElement)popup.Child;menu.UpdateLayout();
             var bitmap=new RenderTargetBitmap((int)Math.Ceiling(menu.ActualWidth+menu.Margin.Left+menu.Margin.Right),(int)Math.Ceiling(menu.ActualHeight+menu.Margin.Top+menu.Margin.Bottom),96,96,PixelFormats.Pbgra32);bitmap.Render(menu);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using(var output=File.Create("artifacts/ui-refactor/09-settings-menu.png"))encoder.Save(output);
-            choice.IsDropDownOpen=false;advanced.IsExpanded=false;
+            choice.IsDropDownOpen=false;
 
             Invoke("New_Click",window,new RoutedEventArgs());Check(Field<Grid>("Workspace").IsVisible,"离开设置可恢复录音页面");
             Invoke("Start_Click",window,new RoutedEventArgs());Wait(600);Check(Field<Course?>("recording")!=null,"真实音频录制启动");Snapshot(window,"artifacts/ui-refactor/03-recording.png");
@@ -118,11 +118,12 @@ internal static class SidebarUiChecks
         Check(Math.Abs(titleCenter-dock.ActualHeight/2)<1,"录音标题在行内垂直居中");
         Check(Visuals<Button>(item).Single().Visibility==Visibility.Hidden,"录音操作按钮默认隐藏");
         Directory.CreateDirectory("artifacts");Snapshot(window,"artifacts/sidebar-ui-check.png");
-        var settings=new SettingsWindow(prefs){Owner=window};settings.Show();Pump();Snapshot(settings,"artifacts/settings-ui-check.png");var updates=Visuals<UpdatePanel>(settings).Single();updates.BringIntoView();Wait(120);Check(Visuals<TextBlock>(updates).Any(t=>t.Text=="当前版本 "+UpdateService.DisplayVersion)&&Visuals<Button>(updates).Any(b=>b.Content?.ToString()=="检查更新"),"设置展示当前版本及检查更新入口");Snapshot(settings,"artifacts/update-settings-ui-check.png");Visuals<Expander>(settings).Single().IsExpanded=true;Pump();var thinking=Visuals<ComboBox>(settings).Single(c=>c.Items.Contains("Off"));var protocol=(ComboBox)typeof(SettingsWindow).GetField("thinkingProtocol",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(settings)!;Check(!protocol.IsVisible&&!Visuals<TextBlock>(settings).Any(t=>t.Text=="思考参数协议")&&Visuals<TextBlock>(settings).Any(t=>t.Text=="笔记模式"),"高级设置隐藏思考参数协议并保留笔记模式");var mode=Visuals<ComboBox>(settings).Single(c=>c.Items.Contains("精编模式（录音后生成精编笔记）"));Check(mode.SelectedIndex==0,"默认先生成课堂笔记");mode.SelectedIndex=1;var addressBox=Visuals<TextBox>(settings).Single(t=>t.Text==prefs.BaseUrl);var modelBox=Visuals<TextBox>(settings).Single(t=>t.Text==prefs.Model);addressBox.Text="https://api.openai.com/v1";modelBox.Text="gpt-test";Check(thinking.Items.Contains("Medium")&&thinking.Items.Contains("XHigh"),"OpenAI 思考强度提供对应选项");addressBox.Text="https://generativelanguage.googleapis.com/v1beta/openai/";modelBox.Text="gemini-3-flash";Check(thinking.Items.Contains("Medium")&&!thinking.Items.Contains("Off")&&!thinking.Items.Contains("Max"),"Gemini 显示当前兼容接口可用的思考强度");addressBox.Text=prefs.BaseUrl;modelBox.Text=prefs.Model;Check(thinking.Items.Cast<object>().Select(x=>x.ToString()).SequenceEqual(new[]{"Off","Low","High","Max"})&&thinking.SelectedIndex==2,"设置按 Off、Low、High、Max 显示并保留默认强度");protocol.SelectedIndex=2;Check(thinking.IsEnabled&&thinking.Items.Cast<object>().Select(x=>x.ToString()).SequenceEqual(new[]{"Off","On"}),"思考开关协议仅显示 Off 和 On");thinking.SelectedIndex=0;settings.Close();Check(Preferences.Load().ThinkingMode=="none"&&Preferences.Load().ThinkingProtocol=="toggle"&&Preferences.Load().GenerationMode=="direct","关闭设置后思考协议、模式和笔记模式持久保存");prefs.ThinkingMode="default";prefs.ThinkingProtocol="auto";prefs.GenerationMode="classroom";prefs.SaveApi();
+        var settings=new SettingsView(prefs){Owner=window};var settingsShell=new Window {Content=settings,Width=1100,Height=780};settingsShell.Show();Pump();Visuals<Button>(settings).Single(b=>b.Tag?.ToString()=="AI 连接").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Pump();Snapshot(settingsShell,"artifacts/settings-ui-check.png");var updates=Visuals<UpdatePanel>(settings).Single();updates.BringIntoView();Wait(120);Check(Visuals<TextBlock>(updates).Any(t=>t.Text=="当前版本 "+UpdateService.DisplayVersion)&&Visuals<Button>(updates).Any(b=>b.Content?.ToString()=="检查更新"),"设置展示当前版本及检查更新入口");Snapshot(settingsShell,"artifacts/update-settings-ui-check.png");Visuals<Button>(settings).Single(b=>b.Tag?.ToString()=="常规").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Pump();var thinking=(ComboBox)typeof(SettingsView).GetField("thinking",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(settings)!;var protocol=(ComboBox)typeof(SettingsView).GetField("thinkingProtocol",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(settings)!;Check(!protocol.IsVisible&&!Visuals<TextBlock>(settings).Any(t=>t.Text=="思考参数协议")&&Visuals<TextBlock>(settings).Any(t=>t.Text=="笔记模式"),"高级设置隐藏思考参数协议并保留笔记模式");var mode=Visuals<ComboBox>(settings).Single(c=>c.Items.Contains("精编模式 · 录音后自动生成"));Check(mode.SelectedIndex==0,"默认先生成课堂笔记");mode.SelectedIndex=1;var addressBox=(TextBox)typeof(SettingsView).GetField("address",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(settings)!;var modelBox=(TextBox)typeof(SettingsView).GetField("model",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(settings)!;addressBox.Text="https://api.openai.com/v1";modelBox.Text="gpt-test";Check(thinking.Items.Contains("Medium")&&thinking.Items.Contains("XHigh"),"OpenAI 思考强度提供对应选项");addressBox.Text="https://generativelanguage.googleapis.com/v1beta/openai/";modelBox.Text="gemini-3-flash";Check(thinking.Items.Contains("Medium")&&!thinking.Items.Contains("Off")&&!thinking.Items.Contains("Max"),"Gemini 显示当前兼容接口可用的思考强度");addressBox.Text=prefs.BaseUrl;modelBox.Text=prefs.Model;Check(thinking.Items.Cast<object>().Select(x=>x.ToString()).SequenceEqual(new[]{"Off","Low","High","Max"})&&thinking.SelectedIndex==2,"设置按 Off、Low、High、Max 显示并保留默认强度");protocol.SelectedIndex=2;Check(thinking.IsEnabled&&thinking.Items.Cast<object>().Select(x=>x.ToString()).SequenceEqual(new[]{"Off","On"}),"思考开关协议仅显示 Off 和 On");thinking.SelectedIndex=0;settings.Close();settingsShell.Close();Check(Preferences.Load().ThinkingMode=="none"&&Preferences.Load().ThinkingProtocol=="toggle"&&Preferences.Load().GenerationMode=="direct","关闭设置后思考协议、模式和笔记模式持久保存");prefs.ThinkingMode="default";prefs.ThinkingProtocol="auto";prefs.GenerationMode="classroom";prefs.SaveApi();
         var activePrefs=Field<Preferences>("prefs");activePrefs.GenerationMode="direct";activePrefs.SaveApi();
         Invoke("NewUnassigned_Click");Invoke("Start_Click");Pump();Check(Field<Course?>("recording")!=null,"测试录音成功开始");
         var active=Field<Course>("recording");Check(active.DirectRefinement&&store.All().Single(c=>c.Id==active.Id).DirectRefinement,"新录音保存所选精编模式");activePrefs.GenerationMode="classroom";activePrefs.SaveApi();Check(active.DirectRefinement,"切换设置不改变已开始录音的模式");
         var audio=Field<AudioRecorder>("recorder");var before=audio.Elapsed;
+        Invoke("Settings_Click");Wait(250);Check(Field<ContentControl>("SettingsHost").IsVisible&&Field<Border>("Sidebar").Visibility==Visibility.Collapsed&&audio.Elapsed>before&&Field<Course>("recording").Id==active.Id,"录音期间进入设置替换侧栏且真实录音继续增长");Invoke("LeaveSettings");Check(Field<Course>("recording").Id==active.Id&&!Field<bool>("paused"),"返回设置不改变当前录音及暂停状态");
         var old=history.Items.Cast<Course>().First(c=>c.Id!=active.Id);history.SelectedItem=old;Pump();
         Check(history.IsEnabled&&Field<Course>("selected").Id==old.Id&&Field<TextBox>("Editor").Text==old.Note,"录音期间可选择并查看未分区历史笔记");
         Check(Field<Course>("recording").Id==active.Id&&!Field<bool>("paused")&&Field<TextBlock>("StatusLabel").Text=="录音中","切换历史记录保留原录音和录音状态");
@@ -182,6 +183,7 @@ internal static class SidebarUiChecks
         var gate=Field<SemaphoreSlim>("processingGate");gate.Wait();
         var run=typeof(MainWindow).GetMethod("RunProcessing",BindingFlags.Instance|BindingFlags.NonPublic)!;
         var pending=(Task)run.Invoke(window,[Field<Course>("selected"),true,null,null])!;Pump();
+        Invoke("Settings_Click");Pump();Check(Field<ContentControl>("SettingsHost").IsVisible&&!pending.IsCompleted&&Field<bool>("busy"),"真实排队任务在设置切换期间保持运行");Invoke("LeaveSettings");
         Check(Field<bool>("busy")&&Field<Button>("GroupButton").IsEnabled,"处理任务期间未分区收起展开按钮可用");
         var oldTopics=Field<ScrollViewer>("TopicsScroll").Visibility;Click(Field<Button>("TopicsHeader"));
         Check(Field<ScrollViewer>("TopicsScroll").Visibility!=oldTopics,"处理期间主题可以收起展开");Click(Field<Button>("TopicsHeader"));
@@ -298,7 +300,7 @@ internal static class SidebarUiChecks
         var collapse=Visuals<Button>(floating).Single(b=>b.ToolTip?.ToString()=="收起悬浮条");
         Check(collapse.Opacity>.9&&collapse.IsHitTestVisible,"悬浮条悬停显示圆形减号按钮");Snapshot(floating,"artifacts/floating-expanded-ui-check.png");
         var widths=new List<double>();var descriptor=System.ComponentModel.DependencyPropertyDescriptor.FromProperty(Window.WidthProperty,typeof(FloatingBar));EventHandler changed=(_,_)=>widths.Add(floating.Width);descriptor.AddValueChanged(floating,changed);
-        floating.SetCompact(true);Wait(400);descriptor.RemoveValueChanged(floating,changed);Check(widths.Any(w=>w>64&&w<330),"收起动画宽度连续变化");
+        floating.SetCompact(true);Wait(400);descriptor.RemoveValueChanged(floating,changed);Check(widths.Any(w=>w>64&&w<414),"收起动画宽度连续变化");
         Check(floating.IsCompact&&Math.Abs(floating.Width-64)<1,"悬浮条平滑收成圆形");Snapshot(floating,"artifacts/floating-compact-ui-check.png");
         var compactGhost=Visuals<GhostMascot>(floating).Single();Check(compactGhost.IsBlinking,"录音状态的小幽灵开启眨眼");
         var frames=new HashSet<string>();for(int i=0;i<70;i++){Wait(60);frames.Add(FrameHash(compactGhost));}
@@ -306,7 +308,7 @@ internal static class SidebarUiChecks
         floating.Update(13,0,true);Wait(150);var pausedFrame=FrameHash(compactGhost);Wait(400);
         Check(!compactGhost.IsBlinking&&FrameHash(compactGhost)==pausedFrame,"暂停后幽灵停止眨眼并保持睁眼静止");Snapshot(floating,"artifacts/floating-paused-ui-check.png");
         floating.Update(14,.1f,false);Check(compactGhost.IsBlinking,"恢复录音后重新眨眼");
-        floating.SetCompact(false);Wait(340);Check(!floating.IsCompact&&Math.Abs(floating.Width-330)<1,"圆形可展开恢复全部录音控制");floating.Hide();Invoke("Exit");
+        floating.SetCompact(false);Wait(340);Check(!floating.IsCompact&&Math.Abs(floating.Width-414)<1,"圆形可展开恢复全部录音控制");floating.Hide();Invoke("Exit");
     }
     private static void Pump(){var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>frame.Continue=false));Dispatcher.PushFrame(frame);}
     private static void Wait(int milliseconds){var frame=new DispatcherFrame();var timer=new DispatcherTimer {Interval=TimeSpan.FromMilliseconds(milliseconds)};timer.Tick+=(_,_)=>{timer.Stop();frame.Continue=false;};timer.Start();Dispatcher.PushFrame(frame);}

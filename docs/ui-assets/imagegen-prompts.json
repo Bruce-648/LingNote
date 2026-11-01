@@ -1,0 +1,116 @@
+{
+  "mode": "Built-in image_gen",
+  "transparent_background": true,
+  "assets": [
+    {
+      "name": "settings",
+      "source": "exec-edd72401-9fc9-495c-982b-29a49e8cfca2.png",
+      "asset": "src/LingNote/Assets/Settings/settings.png"
+    },
+    {
+      "name": "link",
+      "source": "exec-7f5c15f1-3693-432b-88f6-e5a7cb3a9f27.png",
+      "asset": "src/LingNote/Assets/Settings/link.png"
+    },
+    {
+      "name": "mic",
+      "source": "exec-2fc82e7a-5126-41f5-8eb5-094f9c6a516f.png",
+      "asset": "src/LingNote/Assets/Settings/mic.png"
+    },
+    {
+      "name": "restore",
+      "source": "exec-0ba05d80-7f40-4ebb-900f-66325f6c8291.png",
+      "asset": "src/LingNote/Assets/Settings/restore.png"
+    },
+    {
+      "name": "database",
+      "source": "exec-ca3c08d0-c02c-421c-a100-f5cd9ed47684.png",
+      "asset": "src/LingNote/Assets/Settings/database.png"
+    },
+    {
+      "name": "keyboard",
+      "source": "exec-2f093811-ac82-4420-af8f-a7f25a8708c5.png",
+      "asset": "src/LingNote/Assets/Settings/keyboard.png"
+    },
+    {
+      "name": "palette",
+      "source": "exec-3ee59b98-d964-4a4e-8fc1-b83d7a000411.png",
+      "asset": "src/LingNote/Assets/Settings/palette.png"
+    },
+    {
+      "name": "info",
+      "source": "exec-b02981f6-9197-40e3-adfc-924adae96f67.png",
+      "asset": "src/LingNote/Assets/Settings/info.png"
+    },
+    {
+      "name": "back",
+      "source": "exec-973a58b1-a6af-416a-81f8-b47c48d68400.png",
+      "asset": "src/LingNote/Assets/Settings/back.png"
+    },
+    {
+      "name": "search",
+      "source": "exec-ff249d1f-14e3-4b6d-a562-a9a891345cdb.png",
+      "asset": "src/LingNote/Assets/Settings/search.png"
+    },
+    {
+      "name": "eye",
+      "source": "exec-670a7faa-5fed-48c7-a315-1cd241d6b366.png",
+      "asset": "src/LingNote/Assets/Settings/eye.png"
+    },
+    {
+      "name": "sliders",
+      "source": "exec-3c0e3c85-895d-451e-8881-73457bc311b7.png",
+      "asset": "src/LingNote/Assets/Settings/sliders.png"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "settings",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings navigation icon, raster PNG with actual transparent background. Primary request: a single precise minimalist outline gear/cog settings icon, centered, eight rounded teeth, round empty center. Modern Windows UI line icon. Charcoal #525252 strokes, uniform rounded stroke 2 units on a conceptual 24x24 grid, no filled silhouette. Icon occupies 76% of square canvas; generous equal transparent margins. Perfectly clean sharp antialiased contours, readable at 18 px. No text, no label, no shadow, no gradient, no tile, no background, no perspective, no extra symbols. All non-stroke pixels must be truly transparent."
+    },
+    {
+      "name": "link",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single chain link icon: two interlocking elongated rounded links, diagonally arranged from bottom-left to top-right. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "mic",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single microphone icon: vertical rounded capsule microphone, U-shaped pickup cradle, short centered stem and small horizontal foot. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "restore",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single update icon: two curved circular arrows forming a nearly complete circle, small clear arrowheads. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "database",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single database icon: vertical cylindrical database with an elliptical top and two curved horizontal bands. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "keyboard",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single keyboard icon: rounded horizontal keyboard outline, two rows of small key marks and one centered long spacebar. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "palette",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single artist palette outline icon: organic rounded palette with a small thumb notch and three small circular paint holes. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "info",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single information icon: thin perfect circle containing lowercase i, round small dot and short vertical stem. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "back",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single simple left-pointing arrow icon, one horizontal shaft and a rounded chevron arrowhead pointing left. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "search",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single search magnifying glass icon: a thin circle and a short diagonal handle extending to the bottom right. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "eye",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single visibility eye icon: symmetrical almond-shaped eye outline containing a small circular pupil. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    },
+    {
+      "name": "sliders",
+      "prompt": "Use case: logo-brand. Asset type: LingNote Windows desktop settings UI icon. Generate one isolated raster PNG icon with genuinely transparent background. Primary request: a single controls sliders icon: two horizontal parallel lines, each with one small hollow circular adjustment knob at different positions. Modern minimalist Windows desktop line icon; charcoal #525252, uniform fine rounded stroke 2 units on conceptual 24x24 grid. Icon centered, occupies about 76% of square canvas, equal transparent margins. Crisp clean antialiased edges readable at 18px. No text, labels, shadow, gradient, tile, perspective, extra symbols, or background. Preserve all non-stroke pixels as actual alpha transparency."
+    }
+  ]
+}

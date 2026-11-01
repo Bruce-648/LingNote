@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -48,6 +48,11 @@ public sealed class Preferences
     public string ThinkingMode { get; set; } = "default";
     public string ThinkingProtocol { get; set; } = "auto";
     public string GenerationMode { get; set; } = "classroom";
+    public string ThemeAccent {get;set;}="#1263F1";
+    public string ThemeBackground {get;set;}="#FFFFFF";
+    public string ScreenshotDirectory {get;set;}="";
+    public Dictionary<string,string> TopicScreenshotDirectories {get;set;}=[];
+    public int RequestTimeoutSeconds {get;set;}=600;
     public bool Stream { get; set; } = true;
     public int ChunkCharacters { get; set; } = 10000;
     public double FloatingLeft { get; set; } = -1;
@@ -74,7 +79,7 @@ public sealed class Preferences
         lock(settingsGate) {
             Paths.Init();
             if(!apiChanged && (File.Exists(SettingsFile)||File.Exists(SettingsFile+".bak"))) {
-                var saved=Load();BaseUrl=saved.BaseUrl;Model=saved.Model;EncryptedKey=saved.EncryptedKey;ThinkingMode=saved.ThinkingMode;ThinkingProtocol=saved.ThinkingProtocol;GenerationMode=saved.GenerationMode;Stream=saved.Stream;ChunkCharacters=saved.ChunkCharacters;
+                var saved=Load();BaseUrl=saved.BaseUrl;Model=saved.Model;EncryptedKey=saved.EncryptedKey;ThinkingMode=saved.ThinkingMode;ThinkingProtocol=saved.ThinkingProtocol;GenerationMode=saved.GenerationMode;RequestTimeoutSeconds=saved.RequestTimeoutSeconds;Stream=saved.Stream;ChunkCharacters=saved.ChunkCharacters;
             }
             var temporary=SettingsFile+"."+Guid.NewGuid().ToString("N")+".tmp";
             try {File.WriteAllText(temporary,JsonSerializer.Serialize(this));

@@ -1,17 +1,17 @@
-<div align="center">
+﻿<div align="center">
   <img src="src/LingNote/Assets/app-logo.png" alt="LingNote" width="76" />
   <h1>LingNote</h1>
   <p><a href="README.md">简体中文</a> · <strong>English</strong></p>
   <p><strong>Turn audio into notes you can revisit.</strong></p>
   <p>System audio recording · Local transcription · AI notes</p>
   <p>
-    <img src="assets/badges/version.svg" alt="Version 0.2.0" />
+    <img src="assets/badges/version.svg" alt="Version 0.3.0" />
     <img src="https://img.shields.io/badge/platform-Windows_11_x64-0078D4?style=flat-square" alt="Windows 11 x64" />
   </p>
   <p>
     <a href="https://github.com/Bruce-648/LingNote/releases"><strong>Releases</strong></a>
     · <a href="#quick-start">Quick start</a>
-    · <a href="assets/RELEASE-NOTES-0.2.0.md">0.2.0 release notes</a>
+    · <a href="assets/RELEASE-NOTES-0.3.0.md">0.3.0 release notes</a>
     · <a href="https://github.com/Bruce-648/LingNote/issues">Report an issue</a>
   </p>
 </div>
@@ -20,7 +20,7 @@
 
 **LingNote** is a lightweight Windows desktop app for recording audio and creating AI notes. Capture audio playing on your computer, transcribe it locally with Whisper, and use your configured AI endpoint to create notes you can edit, copy, and export.
 
-Use it for online courses, lectures, meeting reviews, interviews, podcasts, and livestreams. The current source version is **0.2.0**. The app's interface is primarily in Simplified Chinese; Chinese labels below help you find the corresponding controls.
+Use it for online courses, lectures, meeting reviews, interviews, podcasts, and livestreams. The current source version is **0.3.0**. The app's interface is primarily in Simplified Chinese; Chinese labels below help you find the corresponding controls.
 
 ## Screenshots
 
@@ -39,7 +39,7 @@ Use it for online courses, lectures, meeting reviews, interviews, podcasts, and 
 
 </details>
 
-Screenshots show the actual 0.2.0 WPF interface with isolated demo data.
+Screenshots use isolated demo data and contain no personal recordings.
 
 ## Features
 
@@ -51,9 +51,11 @@ Screenshots show the actual 0.2.0 WPF interface with isolated demo data.
 - **Configurable AI connection**: Set your endpoint, model, and API key, then test the connection. Advanced settings include note mode, thinking mode, streaming, and text chunk length.
 - **Playback, export, and updates**: Play back recording segments, export Markdown, and check for updates within the app.
 
+Capture windows or screen regions, assign screenshot folders to topics, select recordings for protected batch deletion, and choose from 12 accent colors and 6 light backgrounds.
+
 ## Quick start
 
-1. Get a published installer from **[Releases](https://github.com/Bruce-648/LingNote/releases)**. If you already have a local build, use `artifacts/0.2.0/LingNote-0.2.0-Setup.exe` or run `app/LingNote.exe` directly.
+1. Get a published installer from **[Releases](https://github.com/Bruce-648/LingNote/releases)**. If you already have a local build, use `artifacts/0.3.0/LingNote-0.3.0-Setup.exe` or run `app/LingNote.exe` directly.
 2. Open **Settings (设置) → Local speech model (本地语音模型)** to download or import the multilingual Whisper small model, around **466 MB**. The installer does not include the model; it only needs to be prepared once.
 3. Under **Settings (设置) → AI connection (AI 连接)**, enter an OpenAI Chat Completions-compatible endpoint, model name, and API key. Click **Save (保存)** and **Test connection (测试连接)**.
 4. Play the content you want to capture. Click **New recording (新录音)**, then **Start recording (开始录音)**.
@@ -102,10 +104,10 @@ LingNote/
 ├─ docs/                 # Documentation and screenshots
 ├─ tools/                # Build and installer scripts
 ├─ app/                  # Local runnable build (not committed)
-└─ artifacts/0.2.0/       # Current installer and validation output (not committed)
+└─ artifacts/0.3.0/       # Current installer and validation output (not committed)
 ```
 
-See the **[development guide](docs/DEVELOPMENT.md)** for source setup, dependency restore, testing, and packaging. The **[0.2.0 delivery notes](docs/RELEASE-0.2.0.md)** cover local outputs and validation; the **[release notes](assets/RELEASE-NOTES-0.2.0.md)** describe version changes. These documents are in Chinese.
+See the **[development guide](docs/DEVELOPMENT.md)** for source setup, dependency restore, testing, and packaging. The **[0.3.0 delivery notes](docs/RELEASE-0.3.0.md)** cover local outputs and validation; the **[release notes](assets/RELEASE-NOTES-0.3.0.md)** describe version changes. These documents are in Chinese.
 
 ## Feedback and acknowledgments
 

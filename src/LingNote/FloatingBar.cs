@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -18,10 +18,11 @@ public sealed class FloatingBar : Window
     private bool compact,transitioning,previousPaused;
     private Point? pressStart;
     public bool IsCompact=>compact;
-    public FloatingBar(Preferences config,Action toggle,Action finish,Action restore)
+    public FloatingBar(Preferences config,Action toggle,Action finish,Action restore,Action<bool>? capture=null)
     {
-        prefs=config;Title="LingNote 录音控制";Width=330;Height=88;WindowStyle=WindowStyle.None;ResizeMode=ResizeMode.NoResize;
+        prefs=config;Title="LingNote 录音控制";Width=414;Height=88;WindowStyle=WindowStyle.None;ResizeMode=ResizeMode.NoResize;
         AllowsTransparency=true;Background=Brushes.Transparent;Topmost=true;ShowInTaskbar=false;ShowActivated=false;
+        SourceInitialized+=(_,_)=>{var handle=new System.Windows.Interop.WindowInteropHelper(this).Handle;SetWindowLong(handle,-20,GetWindowLong(handle,-20)|0x08000000);};
         UseLayoutRounding=true;SnapsToDevicePixels=true;
         RenderOptions.SetEdgeMode(this,EdgeMode.Unspecified);
         TextOptions.SetTextRenderingMode(this,TextRenderingMode.Grayscale);
@@ -31,7 +32,11 @@ public sealed class FloatingBar : Window
         var stop=new Button {Content=UiIcons.Image("stop",18),Padding=new Thickness(10,7,10,7),ToolTip="结束并整理"};
         var open=new Button {Content=UiIcons.Image("open",18),Padding=new Thickness(10,7,10,7),ToolTip="返回主窗口"};
         System.Windows.Automation.AutomationProperties.SetName(pause,"暂停或继续");System.Windows.Automation.AutomationProperties.SetName(stop,"结束并整理");System.Windows.Automation.AutomationProperties.SetName(open,"返回主窗口");
-        controls.Children.Add(time);controls.Children.Add(meter);controls.Children.Add(pause);controls.Children.Add(stop);controls.Children.Add(open);
+        controls.Children.Add(time);controls.Children.Add(meter);controls.Children.Add(pause);controls.Children.Add(stop);var shot=new Button {Content=UiIcons.Image("capture",20),ToolTip="截取窗口 · Ctrl + Shift + 1",Padding=new Thickness(10,7,6,7)};shot.Click+=(_,_)=>capture?.Invoke(false);
+        var modes=new Button {Content=UiIcons.Image("chevron",14),ToolTip="截屏选项",Padding=new Thickness(3,7,7,7)};
+        var captureMenu=new ActionPopup(modes,width:220);captureMenu.AddShortcut("截取窗口","monitor","Ctrl + Shift + 1",()=>capture?.Invoke(false));captureMenu.AddShortcut("截取区域","region","Ctrl + Shift + 2",()=>capture?.Invoke(true));
+        modes.Click+=(_,_)=>captureMenu.Toggle();IsVisibleChanged+=(_,_)=>{if(!IsVisible)captureMenu.Close();};
+        shot.Margin=modes.Margin=new Thickness(0);shot.Background=modes.Background=Brushes.Transparent;var captureButtons=new StackPanel {Orientation=Orientation.Horizontal};captureButtons.Children.Add(shot);captureButtons.Children.Add(modes);controls.Children.Add(new Border {Child=captureButtons,CornerRadius=new CornerRadius(10),Background=new SolidColorBrush(Color.FromRgb(232,238,255)),Margin=new Thickness(5,4,5,4)});controls.Children.Add(open);
         var surface=new Grid {ClipToBounds=true};surface.Children.Add(controls);
         bubble=new Border {Background=Brushes.Transparent,Child=ghost,HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center,Opacity=0,Visibility=Visibility.Hidden,Cursor=Cursors.Hand,ToolTip="点击展开录音控制；拖动可移动"};surface.Children.Add(bubble);
         root.Children.Add(new FloatingSurface {Margin=new Thickness(4,28,4,4)});
@@ -48,8 +53,7 @@ public sealed class FloatingBar : Window
         System.Windows.Automation.AutomationProperties.SetName(collapse,"收起悬浮条");root.Children.Add(collapse);
         MouseEnter+=(_,_)=>RevealCollapse(true);MouseLeave+=(_,_)=>RevealCollapse(false);
         collapse.Click+=(_,_)=>SetCompact(true);pause.Click+=(_,_)=>toggle();stop.Click+=(_,_)=>finish();open.Click+=(_,_)=>restore();
-        var menu=new ContextMenu();void Add(string text,Action action){var item=new MenuItem {Header=text};item.Click+=(_,_)=>action();menu.Items.Add(item);}
-        Add("展开录音控制",()=>SetCompact(false));Add("暂停／继续",toggle);Add("结束并整理",finish);Add("返回主窗口",restore);bubble.ContextMenu=menu;
+        bubble.MouseRightButtonUp+=(_,e)=>{e.Handled=true;var menu=new ActionPopup(bubble,true,194);menu.Add("展开录音控制","open",()=>SetCompact(false));menu.Add("暂停／继续","pause",toggle);menu.Add("结束并整理","stop",finish);menu.Separator();menu.Add("截取窗口","monitor",()=>capture?.Invoke(false));menu.Add("截取区域","region",()=>capture?.Invoke(true));menu.Separator();menu.Add("返回主窗口","open",restore);menu.Open();};
         PreviewMouseLeftButtonDown+=(_,e)=>{
             if(FindButton(e.OriginalSource as DependencyObject)!=null||transitioning)return;
             pressStart=PointToScreen(e.GetPosition(this));CaptureMouse();e.Handled=true;
@@ -66,11 +70,13 @@ public sealed class FloatingBar : Window
         LostMouseCapture+=(_,_)=>pressStart=null;
         Loaded+=(_,_)=>{var area=SystemParameters.WorkArea;Left=prefs.FloatingLeft<0?area.Right-Width-24:Math.Clamp(prefs.FloatingLeft,area.Left,Math.Max(area.Left,area.Right-Width));Top=Math.Clamp(prefs.FloatingTop,area.Top,Math.Max(area.Top,area.Bottom-Height));};
     }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr handle,int index);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr handle,int index,int value);
     private void RevealCollapse(bool show){show=show&&!compact&&!transitioning;collapse.IsHitTestVisible=show;collapse.BeginAnimation(OpacityProperty,new DoubleAnimation(show?1:0,TimeSpan.FromMilliseconds(100)));}
     public void SetCompact(bool value)
     {
         if(transitioning||compact==value)return;transitioning=true;compact=value;RevealCollapse(false);
-        var targetWidth=value?64:330;var area=SystemParameters.WorkArea;var targetLeft=Math.Clamp(Left+ActualWidth-targetWidth,area.Left,Math.Max(area.Left,area.Right-targetWidth));
+        var targetWidth=value?64:414;var area=SystemParameters.WorkArea;var targetLeft=Math.Clamp(Left+ActualWidth-targetWidth,area.Left,Math.Max(area.Left,area.Right-targetWidth));
         bubble.Visibility=Visibility.Visible;controls.IsHitTestVisible=false;
         var duration=TimeSpan.FromMilliseconds(200);var easing=new CubicEase {EasingMode=EasingMode.EaseInOut};
         controls.BeginAnimation(OpacityProperty,new DoubleAnimation(value?0:1,duration){EasingFunction=easing});

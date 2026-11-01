@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using System.IO;
@@ -34,7 +34,8 @@ public partial class MainWindow : Window
     private bool shown;
     public MainWindow()
     {
-        InitializeComponent(); SetupDesign(); SettingsButton.Content=UiIcons.Label("settings","设置"); PauseButton.Content=UiIcons.Label("pause","暂停"); floating=new FloatingBar(prefs,()=>Pause_Click(this,new RoutedEventArgs()),()=>Stop_Click(this,new RoutedEventArgs()),Restore);
+        AppTheme.Apply(prefs);InitializeComponent(); SetupDesign(); SettingsButton.Content=UiIcons.Label("settings","设置"); PauseButton.Content=UiIcons.Label("pause","暂停"); floating=new FloatingBar(prefs,()=>Pause_Click(this,new RoutedEventArgs()),()=>Stop_Click(this,new RoutedEventArgs()),Restore,region=>CaptureScreenshot(region));
+        SourceInitialized+=(_,_)=>InitializeCaptureHotkeys();
         using var iconStream=System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/LingNote;component/Assets/app.ico")).Stream;
         tray=new System.Windows.Forms.NotifyIcon {Icon=new System.Drawing.Icon(iconStream),Text="LingNote",Visible=true};
         tray.MouseClick+=(_,e)=>Dispatcher.BeginInvoke(()=> {if(e.Button==System.Windows.Forms.MouseButtons.Right) ShowTrayMenu(); else if(e.Button==System.Windows.Forms.MouseButtons.Left) Restore();});
@@ -42,8 +43,9 @@ public partial class MainWindow : Window
         recorder.PartReady+=part=>Dispatcher.BeginInvoke(()=> {if(recording==null) return; recording.Parts.Add(part); recording.Seconds=part.Offset+part.Duration; store.Save(recording); queue?.Writer.TryWrite(part);});
         recorder.Fault+=message=>Dispatcher.BeginInvoke(()=> {if(recording!=null && !paused) {Pause_Click(this,new RoutedEventArgs()); Hint.Text=message;} });
         ticker.Tick+=(_,_)=> { if(recording!=null) {var seconds=recorder.Elapsed; TimerLabel.Text=TimeSpan.FromSeconds(seconds).ToString("hh\\:mm\\:ss"); if(!paused) LevelBar.Push(recorder.Level); floating.Update(seconds,recorder.Level,paused); if(++ticks%25==0) { recording.Seconds=seconds; store.Save(recording); } } };
+        PreviewKeyDown+=(_,e)=>{if(bulkKind!=null&&e.Key==System.Windows.Input.Key.Escape){EndBulkSelection();e.Handled=true;}};
         ticker.Start(); autosave.Tick+=(_,_)=> {autosave.Stop(); if(selected!=null && !transcriptView) { store.Save(selected);savedAt[selected.Id]=DateTime.Now;editorDirty=false;UpdateControls(); }};
-        Deactivated+=(_,_)=> {if(recording!=null && !exiting) floating.Show();}; Activated+=(_,_)=>floating.Hide(); StateChanged+=(_,_)=> {if(WindowState==WindowState.Minimized && recording!=null) floating.Show();};
+        Deactivated+=(_,_)=> {if(recording!=null && !exiting && !capturing) floating.Show();}; Activated+=(_,_)=>floating.Hide(); StateChanged+=(_,_)=> {if(WindowState==WindowState.Minimized && recording!=null) floating.Show();};
         Closing+=(_,e)=> {if(!LeaveSettings()){e.Cancel=true;return;}if(!exiting) { e.Cancel=true; Hide(); if(recording!=null) floating.Show(); else if(!shown) { tray.ShowBalloonTip(2500,"LingNote 仍在运行","可从系统托盘重新打开，或右键退出。",System.Windows.Forms.ToolTipIcon.Info); shown=true; }}};
         foreach(var course in store.All()) Recover(course);
         RefreshHistory();
@@ -80,7 +82,7 @@ public partial class MainWindow : Window
         if(prefs.GroupUnassignedByDay)view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(Course.DayGroup)));
         History.ItemsSource=prefs.GroupUnassignedByDay?view:visible; History.Items.Refresh();
         File.WriteAllText(Path.Combine(Paths.Root,"library-status.json"),System.Text.Json.JsonSerializer.Serialize(new {DataDirectory=Paths.Root,StoredRecords=store.All().Count,UnassignedRecords=list.Count,VisibleItems=History.Items.Count,Grouped=prefs.GroupUnassignedByDay}));
-        UpdateSections();
+        UpdateSections();UpdateBulkSelection();
         if(titleDirty&&selected!=null)UpdateSidebarTitle(selected.Id,TitleBox.Text);
         if(select!=null) {var target=store.All().FirstOrDefault(c=>c.Id==select);if(target!=null)ShowCourse(target);}
     }
@@ -221,22 +223,25 @@ public partial class MainWindow : Window
         originalTitle=title;titleDirty=false;store.Save(selected);
     }
     private void Title_Changed(object sender,RoutedEventArgs e)=>CommitTitle();
-    private SettingsWindow? embeddedSettings;
+    private SettingsView? embeddedSettings;
+    private GridLength previousSidebarWidth;
+    private Visibility previousSidebarVisibility;
     private bool LeaveSettings()
     {
         if(embeddedSettings==null)return true;
         embeddedSettings.Close();
         if(!embeddedSettings.CanDetach)return false;
-        SettingsHost.Content=null;embeddedSettings=null;SettingsHost.Visibility=Visibility.Collapsed;Workspace.Visibility=Visibility.Visible;SettingsButton.Background=System.Windows.Media.Brushes.Transparent;return true;
+        Sidebar.Visibility=previousSidebarVisibility;SidebarColumn.Width=previousSidebarWidth;SidebarToggle.IsEnabled=true;SettingsHost.Content=null;embeddedSettings=null;SettingsHost.Visibility=Visibility.Collapsed;Workspace.Visibility=Visibility.Visible;SettingsButton.Background=System.Windows.Media.Brushes.Transparent;return true;
     }
     private void Settings_Click(object sender,RoutedEventArgs e)
     {
-        if(busy||recording!=null){Hint.Text="请先结束当前录音或处理任务，再修改设置。";return;}
+
         if(embeddedSettings!=null)return;SaveEditor();
-        embeddedSettings=new SettingsWindow(prefs){Owner=this};
-        var settings=embeddedSettings;
+        embeddedSettings=new SettingsView(prefs){Owner=this};
+        var settings=embeddedSettings;settings.BackRequested+=()=>LeaveSettings();
+        previousSidebarWidth=SidebarColumn.Width;previousSidebarVisibility=Sidebar.Visibility;Sidebar.Visibility=Visibility.Collapsed;SidebarColumn.Width=new GridLength(0);SidebarToggle.IsEnabled=false;
         settings.Closed+=(_,_)=>{if(settings.PendingInstaller is string installer&&settings.PendingInstallerHash is string hash)_=InstallUpdate(installer,hash);};
-        var view=settings.Content;settings.Content=null;SettingsHost.Content=view;
+        SettingsHost.Content=settings;
         SettingsHost.Visibility=Visibility.Visible;Workspace.Visibility=Visibility.Collapsed;SettingsButton.Background=(System.Windows.Media.Brush)FindResource("Selection");
     }
     private void Playback_Click(object sender,RoutedEventArgs e){if(selected?.Parts.Count>0)new PlaybackWindow(selected){Owner=this}.ShowDialog();}

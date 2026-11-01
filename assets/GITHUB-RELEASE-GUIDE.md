@@ -1,16 +1,16 @@
-# GitHub 发布流程
+﻿# GitHub 发布流程
 
 发布仓库：https://github.com/Bruce-648/LingNote
 仓库公开，只发布安装包、校验文件和更新说明。不要上传本地项目目录或个人数据。
 
-## 发布 0.2.0
+## 发布 0.3.0
 1. 创建公开仓库 Bruce-648/LingNote，并勾选 Add a README file。
 2. 打开 https://github.com/Bruce-648/LingNote/releases/new 。
-3. 新建标签 `v0.2.0`，发布标题填写 `LingNote 0.2.0`。
-4. 将本目录 RELEASE-NOTES-0.2.0.md 的内容复制到更新说明。
+3. 新建标签 `v0.3.0`，发布标题填写 `LingNote 0.3.0`。
+4. 将本目录 RELEASE-NOTES-0.3.0.md 的内容复制到更新说明。
 5. 上传这两个文件：
-   - artifacts/0.2.0/LingNote-0.2.0-Setup.exe
-   - artifacts/0.2.0/LingNote-0.2.0-Setup.exe.sha256
+   - artifacts/0.3.0/LingNote-0.3.0-Setup.exe
+   - artifacts/0.3.0/LingNote-0.3.0-Setup.exe.sha256
 6. 不勾选预发布，确认附件上传完成后 Publish release，并将本版设为最新版本。
 7. 安装本版后，在「设置 → 应用更新」点击检查更新，应显示「当前已是最新版本」。
 

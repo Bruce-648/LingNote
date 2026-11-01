@@ -1,17 +1,17 @@
-<div align="center">
+﻿<div align="center">
   <img src="src/LingNote/Assets/app-logo.png" alt="LingNote" width="76" />
   <h1>LingNote</h1>
   <p><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
   <p><strong>让声音，成为随时可查的笔记。</strong></p>
   <p>系统录音 · 本地转写 · AI 整理</p>
   <p>
-    <img src="assets/badges/version.svg" alt="版本 0.2.0" />
+    <img src="assets/badges/version.svg" alt="版本 0.3.0" />
     <img src="https://img.shields.io/badge/platform-Windows_11_x64-0078D4?style=flat-square" alt="Windows 11 x64" />
   </p>
   <p>
     <a href="https://github.com/Bruce-648/LingNote/releases"><strong>版本下载</strong></a>
     · <a href="#快速开始">快速开始</a>
-    · <a href="assets/RELEASE-NOTES-0.2.0.md">0.2.0 更新说明</a>
+    · <a href="assets/RELEASE-NOTES-0.3.0.md">0.3.0 更新说明</a>
     · <a href="https://github.com/Bruce-648/LingNote/issues">反馈问题</a>
   </p>
 </div>
@@ -20,7 +20,7 @@
 
 **LingNote** 是一款轻量的 Windows 桌面录音与 AI 笔记工具。录下电脑播放的声音，在本地用 Whisper 转写，再通过你配置的 AI 接口生成可编辑、复制和导出的笔记。
 
-适合整理线上课程、讲座、会议回顾、访谈、播客和直播。当前源码版本为 **0.2.0**，界面以简体中文为主。
+适合整理线上课程、讲座、会议回顾、访谈、播客和直播。当前源码版本为 **0.3.0**，界面以简体中文为主。
 
 ## 界面预览
 
@@ -39,7 +39,7 @@
 
 </details>
 
-截图来自 0.2.0 实际 WPF 界面，使用隔离的演示数据。
+截图使用隔离的演示数据，不包含个人录音。
 
 ## 功能特性
 
@@ -48,12 +48,14 @@
 - **本地语音转写**：使用 Whisper small 多语言模型，模型准备好后可离线转写，保留原始转写文本与时间戳。
 - **课堂笔记与精编笔记**：双栏对照阅读，各自编辑、自动保存、复制和导出；支持单独重新整理、重新精编及历史版本恢复。
 - **按主题管理**：主题支持文件夹式展开、收起；记录可按主题、未分区和自定义分区组织。
+- **截屏与批量管理**：支持窗口/区域截屏、主题自定义保存目录，以及带确认和任务保护的录音批量删除。
+- **外观配色**：12种强调色、6种浅色背景，即时生效并自动保存。
 - **可配置的 AI 连接**：填写接口地址、模型与 API Key，支持连接测试；高级设置可调整笔记模式、思考模式、流式生成及每段整理字数。
 - **回放、导出与更新**：回放录音片段、导出 Markdown，并通过应用内入口检查更新。
 
 ## 快速开始
 
-1. 从 **[Releases](https://github.com/Bruce-648/LingNote/releases)** 获取已发布的安装包。已有本地构建时，可使用 `artifacts/0.2.0/LingNote-0.2.0-Setup.exe`，或直接运行 `app/LingNote.exe`。
+1. 从 **[Releases](https://github.com/Bruce-648/LingNote/releases)** 获取已发布的安装包。已有本地构建时，可使用 `artifacts/0.3.0/LingNote-0.3.0-Setup.exe`，或直接运行 `app/LingNote.exe`。
 2. 打开 **设置 → 本地语音模型**，下载或导入 Whisper small 多语言模型，约 **466 MB**。安装包不包含模型，只需准备一次。
 3. 在 **设置 → AI 连接** 中填写兼容 OpenAI Chat Completions 的接口地址、模型名称和 API Key，点击「保存」与「测试连接」。
 4. 播放需要记录的内容，点击「新录音」，再点击「开始录音」。
@@ -102,10 +104,10 @@ LingNote/
 ├─ docs/                 # 文档与界面截图
 ├─ tools/                # 构建与安装脚本
 ├─ app/                  # 本地可运行程序（不提交）
-└─ artifacts/0.2.0/       # 当前安装包与验证记录（不提交）
+└─ artifacts/0.3.0/       # 当前安装包与验证记录（不提交）
 ```
 
-源码运行、依赖恢复、测试及打包步骤见 **[开发文档](docs/DEVELOPMENT.md)**。本地交付与验证结果见 **[0.2.0 交付说明](docs/RELEASE-0.2.0.md)**，版本变化见 **[更新说明](assets/RELEASE-NOTES-0.2.0.md)**。
+源码运行、依赖恢复、测试及打包步骤见 **[开发文档](docs/DEVELOPMENT.md)**。本地交付与验证结果见 **[0.3.0 交付说明](docs/RELEASE-0.3.0.md)**，版本变化见 **[更新说明](assets/RELEASE-NOTES-0.3.0.md)**。
 
 ## 反馈与致谢
 

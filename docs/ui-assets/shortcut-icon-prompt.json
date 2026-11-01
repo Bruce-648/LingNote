@@ -1,0 +1,6 @@
+{
+  "mode": "Built-in image_gen",
+  "transparent_background": true,
+  "asset": "src/LingNote/Assets/Settings/keyboard.png",
+  "prompt": "Use case: logo-brand. Asset type: LingNote settings keyboard-shortcuts navigation icon, transparent PNG. Generate one very simple square keyboard keycap icon: a thin rounded-square outline containing only one clean bent return arrow (a horizontal leftward arrow with a short upward right end). A single key, NOT an entire keyboard. No text or letters, no tiny key grids, no extra decorations. Equal overall width and height. Uniform charcoal #22262C outline, rounded caps and joins, stroke 2 units on a conceptual 24x24 grid. Centered icon occupies 76% of square canvas. Modern flat Windows desktop line icon, readable at 16 pixels. Crisp antialiasing; no shadow, no gradient, no background tile or texture, truly transparent background with actual alpha."
+}

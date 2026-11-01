@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using LingNote;
 using System.Net;
 using System.Net.Sockets;
@@ -8,6 +8,8 @@ using System.IO;
 using System.Diagnostics;
 using NAudio.Wave;
 
+if(args.Contains("--bulk-check")){BulkDeletionChecks.Run();return;}
+if(args.Contains("--settings-review")){SettingsCaptureChecks.Run(args.Contains("--keep-open"));return;}
 if(args.Contains("--topic-gap-review")){await QualityReview.TopicGap();return;}
 if(args.Contains("--readability-review")){await QualityReview.Readability();return;}
 if(args.Contains("--quality-review")){await QualityReview.Run(args.Contains("--short-only"));return;}
