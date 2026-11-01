@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,9 +15,10 @@ public static class CaptureService
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window,out NativeRect rect);
     [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window,int attribute,out NativeRect rect,int size);
     public static string DefaultDirectory {
-        get {var home=AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);if(Path.GetFileName(home).Equals("app",StringComparison.OrdinalIgnoreCase))home=Path.GetDirectoryName(home)!;for(var candidate=new DirectoryInfo(home);candidate!=null;candidate=candidate.Parent)if(Directory.Exists(Path.Combine(candidate.FullName,"src","LingNote"))&&Directory.Exists(Path.Combine(candidate.FullName,"tests"))){home=candidate.FullName;break;}return Path.Combine(home,"download");}
+        get => Path.Combine(Paths.ProjectDirectory,"download");
     }
     public static string DirectoryFor(Preferences prefs,string topic)=>!string.IsNullOrWhiteSpace(topic)&&prefs.TopicScreenshotDirectories.TryGetValue(topic,out var custom)&&!string.IsNullOrWhiteSpace(custom)?custom:!string.IsNullOrWhiteSpace(prefs.ScreenshotDirectory)?prefs.ScreenshotDirectory:DefaultDirectory;
+    public static void OpenDirectory(string directory){Directory.CreateDirectory(directory);System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(directory){UseShellExecute=true});}
     public static System.Drawing.Rectangle WindowBounds(IntPtr window)
     {
         if(DwmGetWindowAttribute(window,9,out var rect,Marshal.SizeOf<NativeRect>())!=0&&!GetWindowRect(window,out rect))throw new IOException("无法获取当前窗口范围。");
@@ -45,13 +46,17 @@ internal sealed class CaptureOverlay : Window
         // use physical pixels consistently with CopyFromScreen and the crop.
         SourceInitialized+=(_,_)=>SetWindowPos(new WindowInteropHelper(this).Handle,new IntPtr(-1),screen.X,screen.Y,screen.Width,screen.Height,0x0040);
         var root=new Grid();Content=root;root.Children.Add(new Image {Source=image,Stretch=Stretch.Fill});
-        var canvas=new Canvas {Background=new SolidColorBrush(Color.FromArgb(55,0,0,0))};root.Children.Add(canvas);
-        var selection=new System.Windows.Shapes.Rectangle {Stroke=Brushes.DodgerBlue,StrokeThickness=2,Fill=new SolidColorBrush(Color.FromArgb(15,255,255,255)),Visibility=Visibility.Collapsed};canvas.Children.Add(selection);
+        var canvas=new Canvas {Background=Brushes.Transparent};root.Children.Add(canvas);
+        var mask=new System.Windows.Shapes.Path {Fill=new SolidColorBrush(Color.FromArgb(55,0,0,0)),IsHitTestVisible=false};canvas.Children.Add(mask);
+        var selection=new System.Windows.Shapes.Rectangle {Stroke=Brushes.DodgerBlue,StrokeThickness=2,Fill=Brushes.Transparent,Visibility=Visibility.Collapsed,IsHitTestVisible=false};canvas.Children.Add(selection);
+        void UpdateMask(){var geometry=new GeometryGroup {FillRule=FillRule.EvenOdd};geometry.Children.Add(new RectangleGeometry(new Rect(0,0,canvas.ActualWidth,canvas.ActualHeight)));if(selection.Visibility==Visibility.Visible)geometry.Children.Add(new RectangleGeometry(new Rect(Canvas.GetLeft(selection),Canvas.GetTop(selection),selection.Width,selection.Height)));mask.Data=geometry;}
+        canvas.SizeChanged+=(_,_)=>UpdateMask();
         var hint=new TextBlock {Text="拖动选择截屏区域 · Esc 取消",Background=Brushes.White,Foreground=Brushes.Black,Padding=new Thickness(12),Margin=new Thickness(20),VerticalAlignment=VerticalAlignment.Top,HorizontalAlignment=HorizontalAlignment.Center,IsHitTestVisible=false};root.Children.Add(hint);
         Point? start=null;
-        canvas.MouseLeftButtonDown+=(_,e)=>{start=e.GetPosition(canvas);canvas.CaptureMouse();selection.Visibility=Visibility.Visible;hint.Visibility=Visibility.Collapsed;};
-        canvas.MouseMove+=(_,e)=>{if(start is not Point p)return;var q=e.GetPosition(canvas);Canvas.SetLeft(selection,Math.Min(p.X,q.X));Canvas.SetTop(selection,Math.Min(p.Y,q.Y));selection.Width=Math.Abs(q.X-p.X);selection.Height=Math.Abs(q.Y-p.Y);};
-        canvas.MouseLeftButtonUp+=(_,e)=>{if(start is not Point p)return;canvas.ReleaseMouseCapture();var q=e.GetPosition(canvas);start=null;var sx=image.PixelWidth/canvas.ActualWidth;var sy=image.PixelHeight/canvas.ActualHeight;int x=Math.Clamp((int)(Math.Min(p.X,q.X)*sx),0,image.PixelWidth-1),y=Math.Clamp((int)(Math.Min(p.Y,q.Y)*sy),0,image.PixelHeight-1);int w=Math.Min(image.PixelWidth-x,(int)(Math.Abs(q.X-p.X)*sx)),h=Math.Min(image.PixelHeight-y,(int)(Math.Abs(q.Y-p.Y)*sy));if(w<2||h<2){selection.Visibility=Visibility.Collapsed;return;}Result=new CroppedBitmap(image,new Int32Rect(x,y,w,h));DialogResult=true;};
+        Point Position(MouseEventArgs e){var p=e.GetPosition(canvas);return new Point(Math.Clamp(p.X,0,canvas.ActualWidth),Math.Clamp(p.Y,0,canvas.ActualHeight));}
+        canvas.MouseLeftButtonDown+=(_,e)=>{start=Position(e);canvas.CaptureMouse();Canvas.SetLeft(selection,start.Value.X);Canvas.SetTop(selection,start.Value.Y);selection.Width=selection.Height=0;selection.Visibility=Visibility.Visible;hint.Visibility=Visibility.Collapsed;UpdateMask();};
+        canvas.MouseMove+=(_,e)=>{if(start is not Point p)return;var q=Position(e);Canvas.SetLeft(selection,Math.Min(p.X,q.X));Canvas.SetTop(selection,Math.Min(p.Y,q.Y));selection.Width=Math.Abs(q.X-p.X);selection.Height=Math.Abs(q.Y-p.Y);UpdateMask();};
+        canvas.MouseLeftButtonUp+=(_,e)=>{if(start is not Point p)return;canvas.ReleaseMouseCapture();var q=Position(e);start=null;var sx=image.PixelWidth/canvas.ActualWidth;var sy=image.PixelHeight/canvas.ActualHeight;int x=Math.Clamp((int)(Math.Min(p.X,q.X)*sx),0,image.PixelWidth-1),y=Math.Clamp((int)(Math.Min(p.Y,q.Y)*sy),0,image.PixelHeight-1);int w=Math.Min(image.PixelWidth-x,(int)(Math.Abs(q.X-p.X)*sx)),h=Math.Min(image.PixelHeight-y,(int)(Math.Abs(q.Y-p.Y)*sy));if(w<2||h<2){selection.Visibility=Visibility.Collapsed;UpdateMask();return;}Result=new CroppedBitmap(image,new Int32Rect(x,y,w,h));DialogResult=true;};
         PreviewKeyDown+=(_,e)=>{if(e.Key==Key.Escape)DialogResult=false;};
     }
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window,IntPtr after,int x,int y,int width,int height,uint flags);

@@ -11,6 +11,7 @@ public partial class MainWindow
     private readonly DispatcherTimer toastTimer=new() {Interval=TimeSpan.FromSeconds(5)};
     private void SetupDesign()
     {
+        ScreenshotFolderButton.Content=UiIcons.Label("folder-open","截屏图库");
         Sidebar.AddHandler(Mouse.PreviewMouseWheelEvent,new MouseWheelEventHandler(NoteWheel),true);Editor.AddHandler(Mouse.PreviewMouseWheelEvent,new MouseWheelEventHandler(NoteWheel),true);
         Preview.AddHandler(Mouse.PreviewMouseWheelEvent,new MouseWheelEventHandler(NoteWheel),true);EnhancedPreview.AddHandler(Mouse.PreviewMouseWheelEvent,new MouseWheelEventHandler(NoteWheel),true);
         foreach(var editor in new FrameworkElement[]{Preview,Editor,EnhancedPreview,EnhancedLive})AttachNoteScrollbars(editor);
@@ -184,8 +185,6 @@ public partial class MainWindow
     private void TopicMenu(FrameworkElement anchor,string topic)
     {
         anchor.Focus();var menu=new ActionPopup(anchor);recordMenu=menu;menu.Add("批量选择","checks",()=>BeginBulkSelection("topic",topic,topic));if(busy||recording!=null){menu.Open();return;}menu.Separator();
-        menu.Add("截屏保存文件夹…","folder",()=>{var picker=new Microsoft.Win32.OpenFolderDialog {Title="选择「"+topic+"」的截屏保存文件夹"};if(picker.ShowDialog(this)==true){prefs.TopicScreenshotDirectories[topic]=picker.FolderName;prefs.Save();}});
-        menu.Add("使用默认截屏目录","restore",()=>{prefs.TopicScreenshotDirectories.Remove(topic);prefs.Save();});menu.Separator();
         menu.Add("移至分区…","folder",()=>ChooseSection(anchor,true,topic,null));
         menu.Add("重命名主题","edit",()=>{var name=TextPrompt.Ask(this,"重命名主题",topic);if(name==null||name==topic)return;if(prefs.Topics.Concat(store.All().Select(c=>c.Topic)).Any(t=>string.Equals(t,name,StringComparison.OrdinalIgnoreCase))){Hint.Text="主题名称已存在。";return;}SaveEditor();foreach(var c in store.All().Where(c=>c.Topic==topic)){c.Topic=name;store.Save(c);}if(selected?.Topic==topic)selected.Topic=name;prefs.Topics.Remove(topic);prefs.Topics.Add(name);if(prefs.TopicScreenshotDirectories.Remove(topic,out var screenshotFolder))prefs.TopicScreenshotDirectories[name]=screenshotFolder;if(prefs.TopicSections.Remove(topic,out var section))prefs.TopicSections[name]=section;if(draftTopic==topic)SetActiveTopic(name);prefs.Save();RefreshHistory(selected?.Id);});
         menu.Add("删除主题","trash",()=>{SaveEditor();foreach(var c in store.All().Where(c=>c.Topic==topic)){c.SectionId=LibrarySections.TopicSection(prefs,topic);c.Topic="";store.Save(c);}if(selected?.Topic==topic){selected.SectionId=LibrarySections.TopicSection(prefs,topic);selected.Topic="";}prefs.Topics.Remove(topic);prefs.TopicSections.Remove(topic);prefs.TopicScreenshotDirectories.Remove(topic);if(draftTopic==topic)SetActiveTopic("");prefs.Save();RefreshHistory(selected?.Id);Hint.Text="主题已删除，录音已移至未分区。";});

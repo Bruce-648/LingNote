@@ -25,6 +25,8 @@ internal static class SettingsCaptureChecks
         object? Invoke(string name,params object?[] args)=>typeof(MainWindow).GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(window,args);
         void Verify(bool condition,string label){if(!condition)throw new Exception(label);Console.WriteLine("PASS: "+label);}
         void Click(Button button){button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Pump();}
+        Verify(Paths.DefaultDirectory==Path.GetFullPath("Data"),"默认录音与笔记目录为项目下 Data");
+        Verify(Field<Button>("ScreenshotFolderButton").IsVisible,"主界面提供打开截屏文件夹按钮");
         Invoke("ShowCourse",course);Snapshot(window,"01-main");var sidebar=Field<Border>("Sidebar");var history=Field<ListBox>("History");var selected=Field<Course>("selected");var topics=Field<StackPanel>("EmptyTopics");var count=topics.Children.Count;
         Invoke("Settings_Click",window,new RoutedEventArgs());Pump();var host=Field<ContentControl>("SettingsHost");
         Verify(sidebar.Visibility==Visibility.Collapsed&&Field<ColumnDefinition>("SidebarColumn").Width.Value==0&&Grid.GetColumn(host)==0&&Grid.GetColumnSpan(host)==2,"设置占据同一布局位置，主侧栏无空白占位");
@@ -32,6 +34,8 @@ internal static class SettingsCaptureChecks
         Verify(!Visuals<TextBlock>(host).Any(t=>t.FontSize==26&&t.Text=="AI 连接"),"移除右侧重复分类标题");
         var rightEdges=Visuals<Button>(host).Where(b=>b.Content?.ToString() is "测试连接" or "导入模型" or "检查更新").Select(b=>b.TranslatePoint(new Point(b.ActualWidth,0),host).X).ToList();Verify(rightEdges.Max()-rightEdges.Min()<1,"API、模型导入及更新按钮右边缘统一对齐");
         foreach(var button in nav){Click(button);Verify(Visuals<TextBlock>(host).Any(t=>t.Text==button.Tag!.ToString()),"切换分类："+button.Tag);Snapshot(window,"page-"+button.Tag);}
+        Click(nav.Single(b=>(string)b.Tag=="存储与数据"));
+        Verify(Visuals<Button>(host).Count(b=>b.Content?.ToString()=="更改文件夹")==2&&Visuals<Button>(host).Any(b=>b.Content?.ToString()=="打开文件夹"),"录音库可更改目录，截屏目录可直接打开");
         Click(nav.Single(b=>(string)b.Tag=="外观"));
         var themeChoices=Visuals<Button>(host).Where(b=>System.Windows.Automation.AutomationProperties.GetName(b).StartsWith("强调色：")).ToList();Verify(themeChoices.Count==12&&Visuals<Button>(host).Count(b=>System.Windows.Automation.AutomationProperties.GetName(b).StartsWith("页面底色："))==6,"外观提供12种强调色和6种背景色");
         Click(themeChoices.Single(b=>System.Windows.Automation.AutomationProperties.GetName(b)=="强调色：紫色"));
@@ -53,6 +57,19 @@ internal static class SettingsCaptureChecks
         Click(menuAnchor);Pump();Verify(!PresentationSource.CurrentSources.Cast<PresentationSource>().Where(p=>p.RootVisual!=null).SelectMany(p=>Visuals<TextBlock>(p.RootVisual)).Any(t=>t.IsVisible&&t.Text=="Ctrl + Shift + 1"),"再次点击截屏下拉按钮收起菜单");floating.Hide();
         var bitmap=CaptureService.Grab(CaptureService.WindowBounds(new System.Windows.Interop.WindowInteropHelper(window).Handle));var captureFolder=Path.GetFullPath("artifacts/settings-capture/captured");var png=CaptureService.Save(bitmap,captureFolder);Verify(File.Exists(png)&&new BitmapImage(new Uri(png)).PixelWidth==bitmap.PixelWidth,"真实窗口截图保存为有效 PNG，像素尺寸一致");
         Verify(CaptureService.DefaultDirectory==Path.GetFullPath("download"),"默认截屏目录动态定位项目 download");prefs.ScreenshotDirectory=captureFolder;prefs.TopicScreenshotDirectories["计算机网络"]=Path.Combine(captureFolder,"topic");prefs.Save();var loaded=Preferences.Load();Verify(CaptureService.DirectoryFor(loaded,"计算机网络").EndsWith("topic")&&CaptureService.DirectoryFor(loaded,"")==captureFolder,"主题目录优先，默认自定义目录及配置持久化生效");
+        var originalRoot=Paths.Root;Directory.CreateDirectory(course.Folder);var audio=Path.Combine(course.Folder,"part-000.wav");File.WriteAllText(audio,"preserved audio");course.Parts[0].File=audio;store.Save(course);
+        var relocated=Path.Combine(Path.GetDirectoryName(originalRoot)!,"relocated-"+Guid.NewGuid().ToString("N"));
+        Invoke("ChangeLibraryDirectory",relocated);
+        var moved=new Store().All().Single(c=>c.Id==course.Id);
+        Verify(Paths.Root==relocated&&moved.Note==course.Note&&moved.Parts[0].File.StartsWith(relocated)&&File.ReadAllText(moved.Parts[0].File)=="preserved audio"&&File.Exists(audio),"更改录音库即时生效，笔记及音频完整且原目录保留");
+        Verify(Field<Course>("selected").Id==course.Id&&Field<Course>("selected").Parts[0].File==moved.Parts[0].File,"切换位置后当前笔记与音频路径刷新");
+        try{LibraryLocation.Copy(relocated,Path.Combine(relocated,"nested"));throw new Exception("未拒绝嵌套目录");}catch(IOException){Verify(true,"禁止复制到自身子目录");}
+        try{LibraryLocation.Copy(relocated,originalRoot);throw new Exception("未拒绝已有文件目录");}catch(IOException){Verify(true,"禁止覆盖非空目录");}
+        var white=new WriteableBitmap(320,240,96,96,PixelFormats.Bgra32,null);var pixels=Enumerable.Repeat((byte)255,320*240*4).ToArray();white.WritePixels(new Int32Rect(0,0,320,240),pixels,320*4,0);
+        var overlay=(Window)Activator.CreateInstance(typeof(CaptureService).Assembly.GetType("LingNote.CaptureOverlay")!,white,new System.Drawing.Rectangle(0,0,320,240))!;overlay.Show();Pump();
+        var canvas=Visuals<Canvas>(overlay).Single();var selection=canvas.Children.OfType<System.Windows.Shapes.Rectangle>().Single();Canvas.SetLeft(selection,50);Canvas.SetTop(selection,50);selection.Width=150;selection.Height=100;selection.Visibility=Visibility.Visible;canvas.Width=319;Pump();
+        var preview=new RenderTargetBitmap(320,240,96,96,PixelFormats.Pbgra32);preview.Render(canvas);var selectedPixel=new byte[4];var outsidePixel=new byte[4];preview.CopyPixels(new Int32Rect(100,100,1,1),selectedPixel,4,0);preview.CopyPixels(new Int32Rect(10,100,1,1),outsidePixel,4,0);
+        Verify(selectedPixel[3]==0&&outsidePixel[3]==55,"区域截屏选区内完全透明，灰色遮罩只出现在选区外");overlay.Close();
         if(keepOpen){Field<Preferences>("prefs").ScreenshotDirectory=captureFolder;Invoke("Settings_Click",window,new RoutedEventArgs());Dispatcher.Run();}else{Field<System.Windows.Forms.NotifyIcon>("tray").Dispose();Field<FloatingBar>("floating").Close();typeof(MainWindow).GetField("exiting",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(window,true);window.Close();app.Shutdown();}
     }
 }

@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <img src="src/LingNote/Assets/app-logo.png" alt="LingNote" width="76" />
   <h1>LingNote</h1>
   <p><a href="README.md">简体中文</a> · <strong>English</strong></p>
@@ -141,7 +141,7 @@ Color changes apply immediately, save automatically, and are restored when the a
 
 ## Data and privacy
 
-Audio, transcripts, notes, and settings are stored locally. Installed copies use `%LOCALAPPDATA%\LingNote` by default; existing library bindings continue to use their bound directory. Open **Settings (设置) → Storage and data (存储与数据) → Open data folder (打开数据文件夹)** to find the actual location. Keep and back up this folder when upgrading or moving your data.
+Audio, transcripts, notes, and settings default to the project's `Data` folder; existing library bindings continue to use their bound directory. Open **Settings (设置) → Storage and data (存储与数据) → Open data folder (打开数据文件夹)** to find the actual location. **Change folder (更改文件夹)** copies the library to an empty folder and switches immediately, preserving the original. Finish recording, note processing, and model downloads before changing the location. The top right of the main content area also provides **Screenshot gallery (截屏图库)**, which respects the current topic's folder override. Region capture dims only the area outside the selection.
 
 Speech transcription runs on your computer. AI generation and refinement send the relevant transcripts, notes, and text context to your configured service. API keys are encrypted with **Windows DPAPI** for the current Windows user. Enter the key again when moving to a different computer or Windows user.
 

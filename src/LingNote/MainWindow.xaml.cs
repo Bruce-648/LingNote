@@ -237,7 +237,7 @@ public partial class MainWindow : Window
     {
 
         if(embeddedSettings!=null)return;SaveEditor();
-        embeddedSettings=new SettingsView(prefs){Owner=this};
+        embeddedSettings=new SettingsView(prefs){Owner=this,ChangeDataDirectory=ChangeLibraryDirectory};
         var settings=embeddedSettings;settings.BackRequested+=()=>LeaveSettings();
         previousSidebarWidth=SidebarColumn.Width;previousSidebarVisibility=Sidebar.Visibility;Sidebar.Visibility=Visibility.Collapsed;SidebarColumn.Width=new GridLength(0);SidebarToggle.IsEnabled=false;
         settings.Closed+=(_,_)=>{if(settings.PendingInstaller is string installer&&settings.PendingInstallerHash is string hash)_=InstallUpdate(installer,hash);};
@@ -248,6 +248,17 @@ public partial class MainWindow : Window
     private void Float_Click(object sender,RoutedEventArgs e){if(recording!=null){floating.Show();WindowState=WindowState.Minimized;}}
 
     private void Folder_Click(object sender,RoutedEventArgs e)=>Process.Start(new ProcessStartInfo(Paths.Root) {UseShellExecute=true});
+    private void ScreenshotFolder_Click(object sender,RoutedEventArgs e)
+    {
+        try{CaptureService.OpenDirectory(CaptureService.DirectoryFor(prefs,recording?.Topic??selected?.Topic??draftTopic));}catch(Exception ex){Hint.Text="无法打开截屏文件夹："+ex.Message;}
+    }
+    private void ChangeLibraryDirectory(string destination)
+    {
+        if(recording!=null||processingCourses.Count>0||busy||capturing)throw new IOException("请先结束录音并等待笔记处理完成，再更改数据文件夹。");
+        SaveEditor();prefs.Save();var id=selected?.Id;Paths.ChangeDirectory(destination);
+        // Course.Folder follows the root; reload serialized audio paths from the copied library.
+        selected=null;RefreshHistory(id);
+    }
     private void NoteTab_Click(object sender,RoutedEventArgs e) {SaveEditor(); transcriptView=false; EditToggle.IsChecked=false; Render();}
     private void TranscriptTab_Click(object sender,RoutedEventArgs e) {SaveEditor(); transcriptView=true; EditToggle.IsChecked=false; Render();}
     private void Edit_Changed(object sender,RoutedEventArgs e) {if(Editor==null)return; if(EditToggle.IsChecked!=true) SaveEditor(); Render();}

@@ -7,7 +7,7 @@ $publishArguments = @('publish','src/LingNote','-c','Release','-r','win-x64','--
 if ($SkipRestore) { $publishArguments += '--no-restore' } else { $publishArguments += @('--configfile','NuGet.Config') }
 & dotnet @publishArguments
 if ($LASTEXITCODE -ne 0) { throw '发布失败' }
-if(Test-Path -LiteralPath 'library-location.json') { Copy-Item -LiteralPath 'library-location.json' -Destination 'app/library-location.json' }
+if((Test-Path -LiteralPath 'library-location.json') -and !(Test-Path -LiteralPath 'app/library-location.json')) { Copy-Item -LiteralPath 'library-location.json' -Destination 'app/library-location.json' }
 New-Item -ItemType Directory -Force app/models,app/licenses | Out-Null
 Copy-Item assets/model-manifest.json app/models/
 Copy-Item assets/USER-GUIDE.md app/README.md

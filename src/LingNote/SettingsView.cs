@@ -18,6 +18,7 @@ public sealed class SettingsView : UserControl
     public bool CanDetach {get;private set;}
     public string? PendingInstaller {get;private set;}
     public string? PendingInstallerHash {get;private set;}
+    public Action<string>? ChangeDataDirectory {get;set;}
     public SettingsView(Preferences preferences)
     {
         prefs=preferences;
@@ -91,13 +92,19 @@ public sealed class SettingsView : UserControl
         modelBody.Children.Add(SettingRow("Whisper small",Transcriber.ModelAvailable?"模型已就绪 · 在本地完成语音转写":"尚未安装 · 下载或导入模型后即可本地转写",models));modelBody.Children.Add(modelStatus);modelBody.Children.Add(modelProgress);modelBody.Children.Add(progressBar);
         modelStatus.Text="Whisper small · 本地模型已就绪";var modelCard=Card("本地语音模型","mic",modelBody);
         var updateCard=Card("","restore",updates);
-        var storage=new StackPanel();folder.HorizontalAlignment=HorizontalAlignment.Right;folder.Width=144;folder.Height=34;folder.Margin=new Thickness(0);folder.Padding=new Thickness(12,6,12,6);storage.Children.Add(SettingRow("录音与笔记",Paths.Root,folder));
+        var storage=new StackPanel();folder.HorizontalAlignment=HorizontalAlignment.Right;folder.Width=144;folder.Height=34;folder.Margin=new Thickness(0);folder.Padding=new Thickness(12,6,12,6);
+        var dataLocation=new TextBlock {Text=Paths.Root,TextWrapping=TextWrapping.Wrap,FontSize=13,Foreground=(Brush)FindResource("TextSecondary")};
+        var changeData=new Button {Content="更改文件夹",Width=112,Margin=new Thickness(8,0,0,0)};
+        var storageStatus=new TextBlock {TextWrapping=TextWrapping.Wrap,FontSize=13,Foreground=(Brush)FindResource("TextSecondary"),Margin=new Thickness(0,10,0,0),Visibility=Visibility.Collapsed};
+        changeData.Click+=(_,_)=>{try{if(downloadCts!=null)throw new IOException("请等待模型下载结束后再更改数据文件夹。");var picker=new Microsoft.Win32.OpenFolderDialog {Title="选择录音与笔记文件夹（空文件夹，将复制现有数据）",InitialDirectory=Paths.Root};if(picker.ShowDialog(Owner??Window.GetWindow(this))!=true)return;Save();dirty=false;if(ChangeDataDirectory==null)throw new IOException("请从主界面打开设置后更改数据文件夹。");ChangeDataDirectory(picker.FolderName);dataLocation.Text=Paths.Root;storageStatus.Text="保存位置已更改，原文件夹中的数据已保留。";}catch(Exception ex){storageStatus.Text="更改失败："+ex.Message;}storageStatus.Visibility=Visibility.Visible;};
+        var dataActions=new WrapPanel();dataActions.Children.Add(folder);dataActions.Children.Add(changeData);storage.Children.Add(SettingRow("录音与笔记",dataLocation,dataActions));storage.Children.Add(storageStatus);
         // Show the default directory being edited, not the active theme override.
         var location=new TextBlock {Text=string.IsNullOrWhiteSpace(prefs.ScreenshotDirectory)?CaptureService.DefaultDirectory:prefs.ScreenshotDirectory,TextWrapping=TextWrapping.Wrap,FontSize=13,Foreground=(System.Windows.Media.Brush)FindResource("TextSecondary")};
         var choose=new Button {Content="更改文件夹",Width=112,Height=34,Padding=new Thickness(12,6,12,6),Margin=new Thickness(0)};
         choose.Click+=(_,_)=>{var dialog=new Microsoft.Win32.OpenFolderDialog {Title="选择默认截屏保存文件夹"};if(dialog.ShowDialog(Owner??Window.GetWindow(this))==true){prefs.ScreenshotDirectory=dialog.FolderName;prefs.Save();location.Text=prefs.ScreenshotDirectory;}};
         var reset=new Button {Content="恢复默认",Width=112,Height=34,Padding=new Thickness(12,6,12,6),Margin=new Thickness(8,0,0,0)};reset.Click+=(_,_)=>{prefs.ScreenshotDirectory="";prefs.Save();location.Text=CaptureService.DefaultDirectory;};
-        var directoryActions=new StackPanel {Orientation=Orientation.Horizontal};directoryActions.Children.Add(choose);directoryActions.Children.Add(reset);storage.Children.Add(SettingRow("截屏保存位置",location,directoryActions));
+        var openScreenshots=new Button {Content="打开文件夹",Width=112,Margin=new Thickness(0,0,8,0)};openScreenshots.Click+=(_,_)=>{try{CaptureService.OpenDirectory(CaptureService.DirectoryFor(prefs,""));}catch(Exception ex){storageStatus.Text="无法打开截屏文件夹："+ex.Message;storageStatus.Visibility=Visibility.Visible;}};
+        var directoryActions=new WrapPanel();directoryActions.Children.Add(openScreenshots);directoryActions.Children.Add(choose);directoryActions.Children.Add(reset);storage.Children.Add(SettingRow("截屏保存位置",location,directoryActions));
         storage.Children.Add(new TextBlock {Text="主题单独指定文件夹后，截屏将优先保存到主题文件夹。",TextWrapping=TextWrapping.Wrap,FontSize=13,Foreground=(System.Windows.Media.Brush)FindResource("TextSecondary"),Margin=new Thickness(0,14,0,2)});
         var shortcuts=new StackPanel();shortcuts.Children.Add(SettingRow("截取窗口","保存前台窗口的完整画面",KeyCaps("Ctrl","Shift","1")));shortcuts.Children.Add(SettingRow("截取区域","拖动选择需要保存的范围",KeyCaps("Ctrl","Shift","2")));shortcuts.Children.Add(SettingRow("取消截屏","退出区域选择并返回原界面",KeyCaps("Esc")));
         Action? refreshNavigation=null;

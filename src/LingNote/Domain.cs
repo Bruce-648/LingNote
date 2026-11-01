@@ -7,7 +7,21 @@ namespace LingNote;
 
 public static class Paths
 {
-    public static string Root { get; } = ResolveRoot();
+    public static string Root { get; private set; } = ResolveRoot();
+    public static string ProjectDirectory {
+        get {var home=AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);if(Path.GetFileName(home).Equals("app",StringComparison.OrdinalIgnoreCase))home=Path.GetDirectoryName(home)!;for(var candidate=new DirectoryInfo(home);candidate!=null;candidate=candidate.Parent)if(Directory.Exists(Path.Combine(candidate.FullName,"src","LingNote"))&&Directory.Exists(Path.Combine(candidate.FullName,"tests")))return candidate.FullName;return home;}
+    }
+    public static string DefaultDirectory=>Path.Combine(ProjectDirectory,"Data");
+    public static void ChangeDirectory(string destination)
+    {
+        destination=Path.GetFullPath(destination);if(Path.TrimEndingDirectorySeparator(destination).Equals(Path.TrimEndingDirectorySeparator(Root),StringComparison.OrdinalIgnoreCase))return;
+        LibraryLocation.Copy(Root,destination);
+        var binding=Path.Combine(AppContext.BaseDirectory,"library-location.json");
+        var values=File.Exists(binding)?JsonSerializer.Deserialize<Dictionary<string,JsonElement>>(File.ReadAllText(binding))!:new();
+        values["DataDirectory"]=JsonSerializer.SerializeToElement(destination);
+        var temporary=binding+".tmp";File.WriteAllText(temporary,JsonSerializer.Serialize(values));File.Move(temporary,binding,true);
+        Root=destination;
+    }
     private static string ResolveRoot()
     {
         // The desktop app always opens the same user library. Test runners may
@@ -23,11 +37,7 @@ public static class Paths
                 throw new IOException("原录音库暂时无法访问。请检查数据目录："+saved);
             return Path.GetFullPath(saved);
         }
-        var local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if(string.IsNullOrWhiteSpace(local))local=Environment.GetEnvironmentVariable("LOCALAPPDATA");
-        if(string.IsNullOrWhiteSpace(local)||!Path.IsPathFullyQualified(local))
-            throw new IOException("无法确定用户数据目录。已停止启动，避免创建空的录音库。");
-        return Path.Combine(local,"LingNote");
+        return DefaultDirectory;
     }
     public static string Models => Path.Combine(Root, "models");
     public static string Model => Path.Combine(Models, "ggml-small.bin");
