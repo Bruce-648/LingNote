@@ -7,6 +7,7 @@ namespace LingNote;
 public partial class MainWindow
 {
     private readonly HashSet<string> expandedSidebarLists=new();
+    private readonly HashSet<string> collapsedTopics=new();
     private static void RevealActions(FrameworkElement row,params Button[] actions)
     {
         void Update(){foreach(var action in actions)action.Visibility=row.IsMouseOver||row.IsKeyboardFocusWithin?Visibility.Visible:Visibility.Hidden;}
@@ -28,26 +29,28 @@ public partial class MainWindow
     };
     private void RenderTopic(StackPanel parent,string topic,List<Course> all)
     {
-        var row=new DockPanel {Background=Brushes.Transparent,Height=32,Margin=new Thickness(0,1,0,0)};
+        var row=new DockPanel {Background=Brushes.Transparent,Height=36,Margin=new Thickness(0,1,0,0)};
         var add=SidebarAction("edit","在此主题中新建录音");DockPanel.SetDock(add,Dock.Right);row.Children.Add(add);
         var more=SidebarAction("more","主题操作");DockPanel.SetDock(more,Dock.Right);row.Children.Add(more);
-        var name=new Button {FontSize=14,Foreground=new SolidColorBrush(Color.FromRgb(75,75,75)),Content=UiIcons.Label("folder",topic),HorizontalContentAlignment=HorizontalAlignment.Left,Background=Brushes.Transparent,Padding=new Thickness(8,4,8,4),Margin=new Thickness(0)};
+        var name=new Button {FontSize=14,Foreground=new SolidColorBrush(Color.FromRgb(75,75,75)),Content=UiIcons.TopicFolder(topic,!collapsedTopics.Contains(topic)),HorizontalContentAlignment=HorizontalAlignment.Left,Background=Brushes.Transparent,Padding=new Thickness(8,4,8,4),Margin=new Thickness(0)};
         row.Children.Add(name);parent.Children.Add(row);RevealActions(row,add,more);
-        void NewInTopic(){if(!CanOrganize)return;SetActiveTopic(topic);New_Click(this,new RoutedEventArgs());}
-        add.Click+=(_,_)=>NewInTopic();name.Click+=(_,_)=>NewInTopic();
+        void NewInTopic(){if(recording!=null||stoppingRecording)return;SetActiveTopic(topic);New_Click(this,new RoutedEventArgs());}
+        add.Click+=(_,_)=>NewInTopic();name.Click+=(_,_)=>{if(!collapsedTopics.Add(topic))collapsedTopics.Remove(topic);RefreshHistory();};
         more.Click+=(_,_)=>TopicMenu(more,topic);row.MouseRightButtonUp+=(_,e)=>{e.Handled=true;TopicMenu(more,topic);};
+        if(collapsedTopics.Contains(topic))return;
         RenderLimited(parent,all.Where(c=>c.Topic==topic),"topic:"+topic,c=>RenderSectionRecord(parent,c,32),32);
     }
     private void RenderSectionRecord(StackPanel parent,Course course,double indent=10)
     {
-        var item=new DockPanel {Height=30,Background=Brushes.Transparent};var spacer=new Border {Width=28};DockPanel.SetDock(spacer,Dock.Right);item.Children.Add(spacer);var actions=SidebarAction("more","录音操作");
+        var item=new DockPanel {Height=34,Background=Brushes.Transparent};var spacer=new Border {Width=28};DockPanel.SetDock(spacer,Dock.Right);item.Children.Add(spacer);var actions=SidebarAction("more","录音操作");
         DockPanel.SetDock(actions,Dock.Right);item.Children.Add(actions);
-        var open=new Button {Content=new TextBlock {Text=course.Title,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis},HorizontalContentAlignment=HorizontalAlignment.Left,FontSize=14,Foreground=new SolidColorBrush(Color.FromRgb(75,75,75)),Padding=new Thickness(indent,3,4,3),Margin=new Thickness(0),Background=Brushes.Transparent};
-        item.Children.Add(open);var background=new Border {CornerRadius=new CornerRadius(9),Margin=new Thickness(0,1,0,1),Child=item};
+        var title=new TextBlock {DataContext=course,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis};title.SetBinding(TextBlock.TextProperty,new System.Windows.Data.Binding(nameof(Course.Title)));
+        var open=new Button {Content=title,HorizontalContentAlignment=HorizontalAlignment.Left,FontSize=14,Foreground=new SolidColorBrush(Color.FromRgb(75,75,75)),Padding=new Thickness(indent,3,4,3),Margin=new Thickness(0),Background=Brushes.Transparent};
+        item.Children.Add(open);var background=new Border {CornerRadius=new CornerRadius(9),Margin=new Thickness(0,1,0,1),Child=item,Tag=course};
         topicRecordRows[course.Id]=background;parent.Children.Add(background);RevealActions(item,actions);
         item.MouseEnter+=(_,_)=>{if(selected?.Id!=course.Id)background.Background=new SolidColorBrush(Color.FromRgb(245,245,245));};
         item.MouseLeave+=(_,_)=>{HighlightTopicRecord();};
-        open.Click+=(_,_)=>{if(!busy)ShowCourse(course);};actions.Click+=(_,_)=>OpenRecordMenu(actions,course,false);
+        open.Click+=(_,_)=>{ShowCourse(course);};actions.Click+=(_,_)=>OpenRecordMenu(actions,course,false);
         item.MouseRightButtonUp+=(_,e)=>{e.Handled=true;OpenRecordMenu(open,course,true);};
     }
     private void RenderSections(List<Course> all)
@@ -61,7 +64,7 @@ public partial class MainWindow
             header.Children.Add(name);CustomSections.Children.Add(header);RevealActions(header,add,more);
             var content=new StackPanel {Visibility=section.Collapsed?Visibility.Collapsed:Visibility.Visible};CustomSections.Children.Add(content);
             name.Click+=(_,_)=>{section.Collapsed=!section.Collapsed;prefs.Save();content.Visibility=section.Collapsed?Visibility.Collapsed:Visibility.Visible;name.Content=UiIcons.Section(section.Name,section.Collapsed);};
-            add.Click+=(_,_)=>{if(!CanOrganize)return;SetActiveTopic("");draftSection=section.Id;prefs.ActiveSection=section.Id;prefs.Save();New_Click(this,new RoutedEventArgs());};
+            add.Click+=(_,_)=>{if(recording!=null||stoppingRecording)return;SetActiveTopic("");draftSection=section.Id;prefs.ActiveSection=section.Id;prefs.Save();New_Click(this,new RoutedEventArgs());};
             more.Click+=(_,_)=>SectionMenu(more,section);header.MouseRightButtonUp+=(_,e)=>{e.Handled=true;SectionMenu(more,section);};
             var topics=prefs.Topics.Concat(all.Select(c=>c.Topic)).Where(t=>!string.IsNullOrEmpty(t)&&LibrarySections.TopicSection(prefs,t)==section.Id).Distinct();
             RenderLimited(content,topics,"section-topics:"+section.Id,t=>RenderTopic(content,t,all));

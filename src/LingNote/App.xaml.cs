@@ -10,6 +10,7 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if(e.Args.Contains("--enhance-worker")){_ = EnhancementWorker.Serve().ContinueWith(_=>Dispatcher.BeginInvoke(()=>Shutdown()));return;}
         activation=new ActivationSignal("Local\\LingNote.Activate");
         singleton=new System.Threading.Mutex(true,"Local\\LingNote.Desktop",out var first);
         if(!first) {

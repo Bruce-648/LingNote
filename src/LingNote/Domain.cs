@@ -45,6 +45,9 @@ public sealed class Preferences
     public string ActiveSection { get; set; } = "";
     public bool GroupUnassignedByDay { get; set; }
     public bool GroupByTopic { get; set; }
+    public string ThinkingMode { get; set; } = "default";
+    public string ThinkingProtocol { get; set; } = "auto";
+    public string GenerationMode { get; set; } = "classroom";
     public bool Stream { get; set; } = true;
     public int ChunkCharacters { get; set; } = 10000;
     public double FloatingLeft { get; set; } = -1;
@@ -71,7 +74,7 @@ public sealed class Preferences
         lock(settingsGate) {
             Paths.Init();
             if(!apiChanged && (File.Exists(SettingsFile)||File.Exists(SettingsFile+".bak"))) {
-                var saved=Load();BaseUrl=saved.BaseUrl;Model=saved.Model;EncryptedKey=saved.EncryptedKey;Stream=saved.Stream;ChunkCharacters=saved.ChunkCharacters;
+                var saved=Load();BaseUrl=saved.BaseUrl;Model=saved.Model;EncryptedKey=saved.EncryptedKey;ThinkingMode=saved.ThinkingMode;ThinkingProtocol=saved.ThinkingProtocol;GenerationMode=saved.GenerationMode;Stream=saved.Stream;ChunkCharacters=saved.ChunkCharacters;
             }
             var temporary=SettingsFile+"."+Guid.NewGuid().ToString("N")+".tmp";
             try {File.WriteAllText(temporary,JsonSerializer.Serialize(this));
@@ -81,10 +84,12 @@ public sealed class Preferences
     }
 
 }
-public sealed class Course
+public sealed class Course : System.ComponentModel.INotifyPropertyChanged
 {
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    private string title="录音 " + DateTime.Now.ToString("MM-dd HH:mm");
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
-    public string Title { get; set; } = "录音 " + DateTime.Now.ToString("MM-dd HH:mm");
+    public string Title { get=>title; set {if(title==value)return;title=value;PropertyChanged?.Invoke(this,new System.ComponentModel.PropertyChangedEventArgs(nameof(Title)));} }
     public string Topic { get; set; } = "";
     public string SectionId { get; set; } = "";
     public bool Archived { get; set; }
@@ -94,6 +99,11 @@ public sealed class Course
     public DateTime Created { get; set; } = DateTime.Now;
     public double Seconds { get; set; }
     public string State { get; set; } = "录音中";
+    public bool DirectRefinement { get; set; }
+    public string EnhancedNote { get; set; } = "";
+    public List<string> EnhancedVersions { get; set; } = new();
+    public List<string> EnhancedDrafts { get; set; } = new();
+    public string EnhancedFingerprint { get; set; } = "";
     public string Note { get; set; } = "";
     public string Error { get; set; } = "";
     public List<AudioPart> Parts { get; set; } = [];

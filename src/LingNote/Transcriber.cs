@@ -10,6 +10,7 @@ public sealed class Transcriber : IDisposable
 {
     public const string SmallSha256="1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b";
     private WhisperFactory? factory;
+    private readonly SemaphoreSlim inferenceGate=new(1,1);
     public static string ModelFile => File.Exists(Paths.Model) ? Paths.Model : Path.Combine(AppContext.BaseDirectory,"models","ggml-small.bin");
     public static bool ModelAvailable => File.Exists(ModelFile) && new FileInfo(ModelFile).Length>400_000_000;
     public static async Task Download(IProgress<string> progress,CancellationToken ct)
@@ -22,7 +23,8 @@ public sealed class Transcriber : IDisposable
     public async Task<string> Run(AudioPart part,CancellationToken ct,string context="")
     {
         if(!ModelAvailable) throw new InvalidOperationException("请先在设置中下载或导入本地转写模型。");
-        return await Task.Run(async ()=> {
+        await inferenceGate.WaitAsync(ct);
+        try {return await Task.Run(async ()=> {
             ct.ThrowIfCancellationRequested(); factory??=WhisperFactory.FromPath(ModelFile);
             using var reader=new AudioFileReader(part.File);
             using var pcm=new MemoryStream();
@@ -38,7 +40,7 @@ public sealed class Transcriber : IDisposable
             var text=new List<string>();
             await foreach(var segment in processor.ProcessAsync(values.ToArray(),ct)) { if(!string.IsNullOrWhiteSpace(segment.Text)) text.Add(segment.Text.Trim()); }
             return string.Join(" ",text);
-        },ct);
+        },ct);} finally {inferenceGate.Release();}
     }
     public void Dispose()=>factory?.Dispose();
 }

@@ -47,9 +47,9 @@ Inno Setup 编译器和 Visual C++ 安装器仅在本地打包时使用，不随
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 ```
 
-构建需使用 `tools/Inno/ISCC.exe` 和 `assets/vc_redist.x64.exe`。发布程序位于 `app/`，安装包和 `.sha256` 校验文件位于 `artifacts/`。安装包不包含语音模型、个人数据库或 API 配置。
+构建需使用 `tools/Inno/ISCC.exe` 和 `assets/vc_redist.x64.exe`。发布程序位于 `app/`，安装包和 `.sha256` 校验文件位于 `artifacts/0.2.0/`。安装包不包含语音模型、个人数据库或 API 配置。
 
-GitHub 发布步骤见 **[发布指南](../assets/GITHUB-RELEASE-GUIDE.md)**，版本记录见 **[0.1.33 更新说明](../assets/RELEASE-NOTES-0.1.33.md)**。
+GitHub 发布步骤见 **[发布指南](../assets/GITHUB-RELEASE-GUIDE.md)**，版本记录见 **[0.2.0 更新说明](../assets/RELEASE-NOTES-0.2.0.md)**。
 
 ### 目录结构
 
@@ -60,6 +60,6 @@ LingNote/
 ├─ assets/                  # 品牌素材、许可与模型校验信息
 ├─ tools/                   # 构建与安装脚本
 ├─ app/                     # 本地发布输出，不提交
-├─ artifacts/               # 安装包输出，不提交
+├─ artifacts/0.2.0/               # 安装包输出，不提交
 └─ README.md
 ```

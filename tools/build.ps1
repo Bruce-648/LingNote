@@ -19,7 +19,7 @@ Copy-Item .packages/whisper.net/1.9.1/LICENSE app/licenses/Whisper.net.txt
 Copy-Item .packages/microsoft.windowsdesktop.app.runtime.win-x64/10.0.12/LICENSE app/licenses/WindowsDesktop.txt
 & tools/Inno/ISCC.exe tools/installer.iss
 if ($LASTEXITCODE -ne 0) { throw '安装包编译失败' }
-$releaseInstaller = Get-Item artifacts/LingNote-0.1.34-Setup.exe
+$releaseInstaller = Get-Item artifacts/0.2.0/LingNote-0.2.0-Setup.exe
 $releaseHash = (Get-FileHash -LiteralPath $releaseInstaller.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText($releaseInstaller.FullName+'.sha256', $releaseHash+'  '+$releaseInstaller.Name+[Environment]::NewLine, [Text.Encoding]::ASCII)
 Get-FileHash -LiteralPath $releaseInstaller.FullName -Algorithm SHA256 | Format-List

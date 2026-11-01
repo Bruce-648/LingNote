@@ -21,8 +21,15 @@ public partial class MainWindow : Window
     private Course? recording;
     private Channel<AudioPart>? queue;
     private Task? worker;
-    private CancellationTokenSource? processing;
+    private CancellationTokenSource? recordingCancellation;
+    private readonly Dictionary<string,Course> processingCourses=new();
+    private readonly Dictionary<string,CancellationTokenSource> processingTokens=new();
+    private readonly SemaphoreSlim processingGate=new(1,1);
+    private bool stoppingRecording;
+    private bool SelectedProcessing=>selected!=null&&processingCourses.ContainsKey(selected.Id);
     private bool paused,busy,exiting,loadingEditor,transcriptView;
+    private bool editorDirty,loadingTitle,titleDirty;
+    private string originalTitle="";
     private int ticks;
     private bool shown;
     public MainWindow()
@@ -35,9 +42,9 @@ public partial class MainWindow : Window
         recorder.PartReady+=part=>Dispatcher.BeginInvoke(()=> {if(recording==null) return; recording.Parts.Add(part); recording.Seconds=part.Offset+part.Duration; store.Save(recording); queue?.Writer.TryWrite(part);});
         recorder.Fault+=message=>Dispatcher.BeginInvoke(()=> {if(recording!=null && !paused) {Pause_Click(this,new RoutedEventArgs()); Hint.Text=message;} });
         ticker.Tick+=(_,_)=> { if(recording!=null) {var seconds=recorder.Elapsed; TimerLabel.Text=TimeSpan.FromSeconds(seconds).ToString("hh\\:mm\\:ss"); if(!paused) LevelBar.Push(recorder.Level); floating.Update(seconds,recorder.Level,paused); if(++ticks%25==0) { recording.Seconds=seconds; store.Save(recording); } } };
-        ticker.Start(); autosave.Tick+=(_,_)=> {autosave.Stop(); if(selected!=null && !transcriptView) { selected.Note=Editor.Text; store.Save(selected); }};
+        ticker.Start(); autosave.Tick+=(_,_)=> {autosave.Stop(); if(selected!=null && !transcriptView) { store.Save(selected);savedAt[selected.Id]=DateTime.Now;editorDirty=false;UpdateControls(); }};
         Deactivated+=(_,_)=> {if(recording!=null && !exiting) floating.Show();}; Activated+=(_,_)=>floating.Hide(); StateChanged+=(_,_)=> {if(WindowState==WindowState.Minimized && recording!=null) floating.Show();};
-        Closing+=(_,e)=> {if(!exiting) { e.Cancel=true; Hide(); if(recording!=null) floating.Show(); else if(!shown) { tray.ShowBalloonTip(2500,"LingNote 仍在运行","可从系统托盘重新打开，或右键退出。",System.Windows.Forms.ToolTipIcon.Info); shown=true; }}};
+        Closing+=(_,e)=> {if(!LeaveSettings()){e.Cancel=true;return;}if(!exiting) { e.Cancel=true; Hide(); if(recording!=null) floating.Show(); else if(!shown) { tray.ShowBalloonTip(2500,"LingNote 仍在运行","可从系统托盘重新打开，或右键退出。",System.Windows.Forms.ToolTipIcon.Info); shown=true; }}};
         foreach(var course in store.All()) Recover(course);
         RefreshHistory();
         Loaded+=(_,_)=> { if(!Transcriber.ModelAvailable) Hint.Text="首次使用：到「设置」下载语音模型（约 466 MB）。也可以先录音。";
@@ -59,7 +66,7 @@ public partial class MainWindow : Window
     }
     private void Recover(Course course)
     {
-        if(course.State is not ("录音中" or "已暂停" or "正在转写" or "正在整理")) return;
+        if(course.State is not ("录音中" or "已暂停" or "正在转写" or "正在整理" or "等待处理" or "正在完善" or "正在精编")) return;
         if(Directory.Exists(course.Folder)) foreach(var file in Directory.GetFiles(course.Folder,"part-*.wav").Order()) {
             if(course.Parts.Any(p=>p.File.Equals(file,StringComparison.OrdinalIgnoreCase))) continue;
             try {using var wave=new NAudio.Wave.WaveFileReader(file); if(wave.TotalTime.TotalSeconds>.05) course.Parts.Add(new AudioPart {File=file,Offset=course.Parts.Sum(p=>p.Duration),Duration=wave.TotalTime.TotalSeconds});} catch { }
@@ -74,33 +81,45 @@ public partial class MainWindow : Window
         History.ItemsSource=prefs.GroupUnassignedByDay?view:visible; History.Items.Refresh();
         File.WriteAllText(Path.Combine(Paths.Root,"library-status.json"),System.Text.Json.JsonSerializer.Serialize(new {DataDirectory=Paths.Root,StoredRecords=store.All().Count,UnassignedRecords=list.Count,VisibleItems=History.Items.Count,Grouped=prefs.GroupUnassignedByDay}));
         UpdateSections();
+        if(titleDirty&&selected!=null)UpdateSidebarTitle(selected.Id,TitleBox.Text);
         if(select!=null) {var target=store.All().FirstOrDefault(c=>c.Id==select);if(target!=null)ShowCourse(target);}
     }
     private void ShowCourse(Course course)
     {
+        if(!LeaveSettings())return;
+        if(titleDirty&&selected?.Id==course.Id){CommitTitle();course=selected;}
         if(recording?.Id==course.Id)course=recording;
-        SaveEditor();draftSection=LibrarySections.SectionOf(prefs,course); SetActiveTopic(course.Topic);course.IsRead=true;store.Save(course); selected=course; TitleBox.Text=course.Title; Meta.Text=course.Caption; StatusLabel.Text=recording?.State??course.State; TimerLabel.Text=TimeSpan.FromSeconds(recording!=null?recorder.Elapsed:course.Seconds).ToString("hh\\:mm\\:ss"); Hint.Text=course.Error; transcriptView=false; EditToggle.IsChecked=false; Render(); GenerateButton.IsEnabled=!busy && recording==null; GenerateButton.Content=course.State=="已完成"?"重新整理":"继续整理";
+        else if(processingCourses.TryGetValue(course.Id,out var pending))course=pending;
+        SaveEditor();draftSection=LibrarySections.SectionOf(prefs,course); SetActiveTopic(course.Topic);if(!course.IsRead){course.IsRead=true;store.Save(course);} selected=course; loadingTitle=true;TitleBox.Text=course.Title;loadingTitle=false;titleDirty=false;originalTitle=course.Title; Meta.Text=course.Created.ToLocalTime().ToString("M月d日")+" · "+(recording?.Id==course.Id?"":TimeSpan.FromSeconds(course.Seconds).ToString("hh\\:mm\\:ss")+" · ")+(string.IsNullOrWhiteSpace(course.Topic)?"未分区":course.Topic)+(recording?.Id==course.Id?" · 系统声音":""); StatusLabel.Text=recording?.State??course.State; TimerLabel.Text=TimeSpan.FromSeconds(recording!=null?recorder.Elapsed:course.Seconds).ToString("hh\\:mm\\:ss"); Hint.Text=course.Error; transcriptView=false; EditToggle.IsChecked=false; Render(); GenerateButton.IsEnabled=!SelectedProcessing && recording?.Id!=course.Id; GenerateButton.Content=course.State=="已完成"?"重新整理":"继续整理";
     }
+    private string? CurrentNote(Course? course)=>course?.DirectRefinement==true?course.EnhancedNote:course?.Note;
+    private void SetCurrentNote(Course course,string text) {if(course.DirectRefinement)course.EnhancedNote=text;else course.Note=text;}
     private void Render()
     {
-        var text=transcriptView?selected?.Transcript:selected?.Note;
+        var text=transcriptView?selected?.Transcript:CurrentNote(selected);
         loadingEditor=true; Editor.Text=text??""; loadingEditor=false;
         EmptyPanel.Visibility=string.IsNullOrWhiteSpace(text)?Visibility.Visible:Visibility.Collapsed;
-        Preview.Document=string.IsNullOrWhiteSpace(text)?new():MarkdownView.Render(text);
+        loadingEditor=true;Preview.Document=string.IsNullOrWhiteSpace(text)?new():MarkdownView.Render(text);loadingEditor=false;
         Preview.Visibility=EditToggle.IsChecked==true?Visibility.Collapsed:Visibility.Visible;
         Editor.Visibility=EditToggle.IsChecked==true?Visibility.Visible:Visibility.Collapsed;
-        Editor.IsReadOnly=transcriptView || busy; UpdateControls();
+        loadingEditor=true;EnhancedPreview.Document=MarkdownView.Render(selected?.EnhancedNote??"");loadingEditor=false;
+        Editor.IsReadOnly=Preview.IsReadOnly=transcriptView || SelectedProcessing; UpdateControls();
     }
-    private void SaveEditor() { autosave.Stop(); if(selected!=null && !transcriptView && !loadingEditor && EditToggle.IsChecked==true && !busy) {selected.Note=Editor.Text; store.Save(selected);} }
+    private void SaveEditor() { CommitTitle();autosave.Stop(); if(editorDirty&&selected!=null && !loadingEditor && !SelectedProcessing) {store.Save(selected);savedAt[selected.Id]=DateTime.Now;editorDirty=false;} }
+    private void Preview_Changed(object sender,TextChangedEventArgs e)
+    {
+        if(loadingEditor||transcriptView||SelectedProcessing||selected==null||e.Changes.Count==0)return;
+        editorDirty=true;SetCurrentNote(selected,MarkdownView.ToMarkdown(Preview.Document));autosave.Stop();autosave.Start();UpdateControls();
+    }
     private async void Start_Click(object sender,RoutedEventArgs e)
     {
-        if(recording!=null || busy) return;
+        if(recording!=null || stoppingRecording) return;
         try {
-            SaveEditor(); LevelBar.Clear(); var course=new Course {Topic=draftTopic,SectionId=draftSection}; if(selected==null && TitleBox.Text.Trim() is {Length:>0} title && title!="新录音") course.Title=title; store.Save(course); recording=course; paused=false; PauseButton.Content=UiIcons.Label("pause","暂停");
+            SaveEditor(); LevelBar.Clear(); var course=new Course {Topic=draftTopic,SectionId=draftSection,DirectRefinement=prefs.GenerationMode=="direct"}; if(selected==null && TitleBox.Text.Trim() is {Length:>0} title && title!="新录音") course.Title=title; store.Save(course); recording=course; paused=false; PauseButton.Content=UiIcons.Label("pause","暂停");
             queue=Channel.CreateUnbounded<AudioPart>(new UnboundedChannelOptions {SingleReader=true});
-            processing=new(); worker=Consume(queue.Reader,course,processing.Token);
+            recordingCancellation=new(); worker=Consume(queue.Reader,course,recordingCancellation.Token);
             recorder.Begin(course.Folder); RefreshHistory(); ShowCourse(course); History.IsEnabled=true; NewButton.IsEnabled=false; PauseButton.IsEnabled=StopButton.IsEnabled=true; GenerateButton.IsEnabled=false; UpdateControls(); StatusLabel.Text="录音中"; Hint.Text="录制默认播放设备的声音。可以最小化窗口，继续专心听课。";
-        } catch(Exception ex) {recording=null; queue?.Writer.TryComplete(); if(worker!=null) await worker; SetBusy(false); ShowError(ex);}
+        } catch(Exception ex) {recording=null; queue?.Writer.TryComplete(); if(worker!=null) await worker; SetBusy(processingCourses.Count>0); ShowError(ex);}
     }
     private async Task Consume(ChannelReader<AudioPart> reader,Course course,CancellationToken ct)
     {
@@ -118,63 +137,130 @@ public partial class MainWindow : Window
     }
     private async void Stop_Click(object sender,RoutedEventArgs e)
     {
-        if(recording==null || busy) return;
-        Restore(); busy=true; UpdateControls();StopButton.IsEnabled=PauseButton.IsEnabled=false;
-        var course=recording; ShowCourse(course);
+        if(recording==null||stoppingRecording)return;
+        stoppingRecording=true;Restore();var course=recording;ShowCourse(course);
+        Task? finishedWorker=null;CancellationTokenSource? finishedCancellation=null;
         try {
-            recorder.Pause(); floating.Hide(); await Dispatcher.InvokeAsync(()=>{},DispatcherPriority.Background); // drain committed-part notifications before closing queue
-            course.Seconds=recorder.TotalSeconds; course.State="正在转写"; store.Save(course); queue?.Writer.TryComplete(); recording=null;
-            SetBusy(true); StatusLabel.Text="正在完成转写"; if(worker!=null) await worker;
-            await ProcessCourse(course,false);
-        } catch(Exception ex) {course.State="待重试"; course.Error=ex.Message; store.Save(course); ShowError(ex);} finally {recording=null; SetBusy(false); RefreshHistory(course.Id);}
+            recorder.Pause();floating.Hide();await Dispatcher.InvokeAsync(()=>{},DispatcherPriority.Background);
+            course.Seconds=recorder.TotalSeconds;course.State="正在转写";store.Save(course);
+            queue?.Writer.TryComplete();finishedWorker=worker;recording=null;queue=null;worker=null;
+            finishedCancellation=recordingCancellation;recordingCancellation=null;
+        } catch(Exception ex) {course.State="待重试";course.Error=ex.Message;store.Save(course);ShowError(ex);return;}
+        finally {stoppingRecording=false;UpdateControls();}
+        await RunProcessing(course,false,finishedWorker,finishedCancellation);
     }
-    private async Task ProcessCourse(Course course,bool regenerate)
+    private async Task RunProcessing(Course course,bool regenerate,Task? capturedWorker=null,CancellationTokenSource? capturedCancellation=null)
     {
-        processing?.Dispose(); processing=new(); var ct=processing.Token;
-        if(!Transcriber.ModelAvailable) throw new InvalidOperationException("录音已保存。请到设置中安装本地模型，再点击「继续整理」。");
+        if(processingCourses.ContainsKey(course.Id))return;
+        var cancellation=new CancellationTokenSource();processingCourses.Add(course.Id,course);processingTokens.Add(course.Id,cancellation);
+        using var cancelCapture=cancellation.Token.Register(()=>capturedCancellation?.Cancel());
+        course.State="等待处理";store.Save(course);SetBusy(true);bool entered=false;
+        try {
+            // The preceding capture keeps its own worker and cancellation source.
+            // Another recording may start while this course waits or is summarized.
+            if(capturedWorker!=null){var waiting=Stopwatch.StartNew();var remaining=course.Parts.Count(p=>!p.Done);await capturedWorker;PerformanceLog.Record("recording_tail_wait",waiting.Elapsed.TotalMilliseconds,remaining);}
+            if(!enhanceRequests.Contains(course.Id)){await processingGate.WaitAsync(cancellation.Token);entered=true;}
+            await ProcessCourse(course,regenerate,cancellation.Token);
+        } catch(OperationCanceledException) {course.State="已取消";course.Error="处理已取消，录音和已完成的内容仍保留。";}
+        catch(Exception ex) {course.State="待重试";course.Error=ex.Message;if(selected?.Id==course.Id)ShowError(ex);}
+        finally {
+            if(entered)processingGate.Release();capturedCancellation?.Dispose();
+            store.Save(course);processingCourses.Remove(course.Id);processingTokens.Remove(course.Id);cancellation.Dispose();
+            SetBusy(processingCourses.Count>0);RefreshHistory();
+            if(selected?.Id==course.Id)ShowCourse(course);
+        }
+    }
+    private void ProcessingStatus(Course course,string text) {if(selected?.Id==course.Id&&recording==null&&processingCourses.ContainsKey(course.Id))StatusLabel.Text=text;}
+    private async Task ProcessCourse(Course course,bool regenerate,CancellationToken ct)
+    {
+        if(enhanceRequests.Remove(course.Id)){await CompleteEnhancement(course,ct);return;}
+        if(course.Parts.Any(p=>!p.Done)&&!Transcriber.ModelAvailable) throw new InvalidOperationException("录音已保存。请到设置中安装本地模型，再点击「继续整理」。");
         course.State="正在转写"; store.Save(course);
-        for(int i=0;i<course.Parts.Count;i++) {var part=course.Parts[i]; if(part.Done) continue; StatusLabel.Text=$"正在转写 {i+1}/{course.Parts.Count}"; part.Text=await asr.Run(part,ct,i>0?course.Parts[i-1].Text:""); part.Done=true; store.Save(course);}
+        var transcriptionTimer=Stopwatch.StartNew();var pendingParts=course.Parts.Count(p=>!p.Done);
+        for(int i=0;i<course.Parts.Count;i++) {var part=course.Parts[i]; if(part.Done) continue; ProcessingStatus(course,$"正在转写 {i+1}/{course.Parts.Count}"); part.Text=await asr.Run(part,ct,i>0?course.Parts[i-1].Text:""); part.Done=true; store.Save(course);}
+        PerformanceLog.Record("transcription_remaining",transcriptionTimer.Elapsed.TotalMilliseconds,pendingParts);
         if(string.IsNullOrWhiteSpace(course.Transcript)) throw new InvalidOperationException("未识别到有效讲话。录音已保留，可回放检查声音。");
-        if(regenerate) {course.Drafts.Clear(); course.DraftFingerprint="";}
-        course.State="正在整理"; store.Save(course); StatusLabel.Text=course.State; Hint.Text="正在根据课程内容梳理笔记…";
-        var preview=new System.Text.StringBuilder(); var progress=new Progress<string>(s=>StatusLabel.Text=s); var lastPreview=Stopwatch.StartNew();
-        var note=await ai.Generate(course,prefs,store,progress,delta=> {preview.Append(delta); if(lastPreview.ElapsedMilliseconds<250)return; lastPreview.Restart(); var snapshot=preview.ToString(); Dispatcher.BeginInvoke(()=> {loadingEditor=true; Editor.Text=snapshot; loadingEditor=false; EmptyPanel.Visibility=Visibility.Collapsed; if(EditToggle.IsChecked!=true) Preview.Document=MarkdownView.Render(snapshot);});},ct);
-        if(!string.IsNullOrEmpty(course.Note)) course.Versions.Add(course.Note);
-        course.Note=note; course.State="已完成"; course.Error=""; store.Save(course); Hint.Text="笔记已自动保存，可以复制、编辑或导出。";
+        if(regenerate) {if(course.DirectRefinement){course.EnhancedDrafts.Clear();course.EnhancedFingerprint="";}else{course.Drafts.Clear();course.DraftFingerprint="";}}
+        course.State="正在整理"; store.Save(course); ProcessingStatus(course,course.State);
+        var preview=new System.Text.StringBuilder(); var progress=new Progress<string>(s=>ProcessingStatus(course,s)); var lastPreview=Stopwatch.StartNew();
+        void ShowPreview(string delta) {if(course.DirectRefinement)preview.Clear();preview.Append(delta);if(lastPreview.ElapsedMilliseconds<250)return;lastPreview.Restart();var snapshot=preview.ToString();Dispatcher.BeginInvoke(()=> {if(selected?.Id!=course.Id||transcriptView||!processingCourses.ContainsKey(course.Id))return;loadingEditor=true;Editor.Text=snapshot;EmptyPanel.Visibility=Visibility.Collapsed;if(EditToggle.IsChecked!=true)Preview.Document=MarkdownView.Render(snapshot);loadingEditor=false;});}
+        var note=course.DirectRefinement
+            ? await ai.Enhance(course,prefs,store,progress,ct,ShowPreview,fromTranscript:true)
+            : await ai.Generate(course,prefs,store,progress,ShowPreview,ct);
+        if(course.DirectRefinement){if(!string.IsNullOrEmpty(course.EnhancedNote))course.EnhancedVersions.Add(course.EnhancedNote);course.EnhancedNote=note;course.EnhancedDrafts.Clear();course.EnhancedFingerprint="";}
+        else {if(!string.IsNullOrEmpty(course.Note))course.Versions.Add(course.Note);course.Note=note;course.Drafts.Clear();course.DraftFingerprint="";}
+        store.Save(course);
+        course.State="已完成"; course.Error=""; store.Save(course); if(selected?.Id==course.Id)Hint.Text="笔记已自动保存，可以复制、直接编辑或导出。";
     }
     private async void Generate_Click(object sender,RoutedEventArgs e)
     {
-        if(selected==null || busy || recording!=null) return;
-        SaveEditor(); var course=selected;
-        SetBusy(true);
-        try {await ProcessCourse(course,course.State=="已完成" && !string.IsNullOrEmpty(course.Note));}
-        catch(OperationCanceledException) {course.State="已取消"; course.Error="处理已取消，录音和已完成的内容仍保留。";}
-        catch(Exception ex) {course.State="待重试"; course.Error=ex.Message; ShowError(ex);}
-        finally {store.Save(course); SetBusy(false); RefreshHistory(course.Id);}
+        if(selected==null||SelectedProcessing||recording?.Id==selected.Id)return;
+        SaveEditor();var course=selected;
+        var resume=(course.State is "待重试" or "已取消")&&(course.DirectRefinement?course.EnhancedDrafts.Count:course.Drafts.Count)>0;
+        await RunProcessing(course,!string.IsNullOrEmpty(CurrentNote(course))&&!resume);
     }
-    private void SetBusy(bool value) {busy=value; NewButton.IsEnabled=!value && recording==null; History.IsEnabled=!value; GenerateButton.IsEnabled=!value && selected!=null && recording==null; CancelButton.Visibility=value?Visibility.Visible:Visibility.Collapsed; EditToggle.IsEnabled=!value; UpdateControls();}
+    private void SetBusy(bool value) {busy=value;History.IsEnabled=true;UpdateControls();}
     private void ShowError(Exception ex) {Hint.Text=ex is OperationCanceledException?"处理已取消，录音仍保留。":ex.Message; StatusLabel.Text="需要处理";}
-    private void History_Changed(object sender,SelectionChangedEventArgs e) {if(History.SelectedItem is Course course && !busy) ShowCourse(course);}
-    private void Title_Changed(object sender,RoutedEventArgs e) {if(selected==null) return; var title=TitleBox.Text.Trim(); if(title==selected.Title)return; if(title.Length==0) {TitleBox.Text=selected.Title;return;} selected.Title=title; store.Save(selected); if(recording==null && !busy) RefreshHistory(selected.Id);}
-    private void Settings_Click(object sender,RoutedEventArgs e) {if(busy || recording!=null) {Hint.Text="请先结束当前录音或处理任务，再修改设置。";return;} var settings=new SettingsWindow(prefs) {Owner=this};settings.ShowDialog();if(settings.PendingInstaller is string installer&&settings.PendingInstallerHash is string hash)_ = InstallUpdate(installer,hash);}
+    private void History_Changed(object sender,SelectionChangedEventArgs e) {if(History.SelectedItem is Course course) ShowCourse(course);}
+    private void UpdateSidebarTitle(string id,string title)
+    {
+        foreach(var course in History.Items.OfType<Course>().Where(c=>c.Id==id))course.Title=title;
+        if(topicRecordRows.TryGetValue(id,out var row)&&row.Tag is Course sectionCourse)sectionCourse.Title=title;
+    }
+    private void Title_TextChanged(object sender,TextChangedEventArgs e)
+    {
+        if(loadingTitle||selected==null)return;
+        titleDirty=true;selected.Title=TitleBox.Text;UpdateSidebarTitle(selected.Id,TitleBox.Text);
+    }
+    private void CommitTitle()
+    {
+        if(!titleDirty||selected==null)return;
+        var title=TitleBox.Text.Trim();if(title.Length==0)title=originalTitle;
+        selected.Title=title;UpdateSidebarTitle(selected.Id,title);
+        loadingTitle=true;TitleBox.Text=title;loadingTitle=false;
+        originalTitle=title;titleDirty=false;store.Save(selected);
+    }
+    private void Title_Changed(object sender,RoutedEventArgs e)=>CommitTitle();
+    private SettingsWindow? embeddedSettings;
+    private bool LeaveSettings()
+    {
+        if(embeddedSettings==null)return true;
+        embeddedSettings.Close();
+        if(!embeddedSettings.CanDetach)return false;
+        SettingsHost.Content=null;embeddedSettings=null;SettingsHost.Visibility=Visibility.Collapsed;Workspace.Visibility=Visibility.Visible;SettingsButton.Background=System.Windows.Media.Brushes.Transparent;return true;
+    }
+    private void Settings_Click(object sender,RoutedEventArgs e)
+    {
+        if(busy||recording!=null){Hint.Text="请先结束当前录音或处理任务，再修改设置。";return;}
+        if(embeddedSettings!=null)return;SaveEditor();
+        embeddedSettings=new SettingsWindow(prefs){Owner=this};
+        var settings=embeddedSettings;
+        settings.Closed+=(_,_)=>{if(settings.PendingInstaller is string installer&&settings.PendingInstallerHash is string hash)_=InstallUpdate(installer,hash);};
+        var view=settings.Content;settings.Content=null;SettingsHost.Content=view;
+        SettingsHost.Visibility=Visibility.Visible;Workspace.Visibility=Visibility.Collapsed;SettingsButton.Background=(System.Windows.Media.Brush)FindResource("Selection");
+    }
+    private void Playback_Click(object sender,RoutedEventArgs e){if(selected?.Parts.Count>0)new PlaybackWindow(selected){Owner=this}.ShowDialog();}
+    private void Float_Click(object sender,RoutedEventArgs e){if(recording!=null){floating.Show();WindowState=WindowState.Minimized;}}
+
     private void Folder_Click(object sender,RoutedEventArgs e)=>Process.Start(new ProcessStartInfo(Paths.Root) {UseShellExecute=true});
-    private void NoteTab_Click(object sender,RoutedEventArgs e) {if(busy)return; SaveEditor(); transcriptView=false; EditToggle.IsChecked=false; Render();}
-    private void TranscriptTab_Click(object sender,RoutedEventArgs e) {if(busy)return; SaveEditor(); transcriptView=true; EditToggle.IsChecked=false; Render();}
+    private void NoteTab_Click(object sender,RoutedEventArgs e) {SaveEditor(); transcriptView=false; EditToggle.IsChecked=false; Render();}
+    private void TranscriptTab_Click(object sender,RoutedEventArgs e) {SaveEditor(); transcriptView=true; EditToggle.IsChecked=false; Render();}
     private void Edit_Changed(object sender,RoutedEventArgs e) {if(Editor==null)return; if(EditToggle.IsChecked!=true) SaveEditor(); Render();}
-    private void Editor_Changed(object sender,TextChangedEventArgs e) {if(loadingEditor || busy || transcriptView || selected==null) return; selected.Note=Editor.Text; autosave.Stop(); autosave.Start();}
-    private void Copy_Click(object sender,RoutedEventArgs e) {SaveEditor(); var text=transcriptView?selected?.Transcript:selected?.Note; if(!string.IsNullOrEmpty(text)) {System.Windows.Clipboard.SetText(text); Hint.Text="已复制到剪贴板。";}}
+    private void Editor_Changed(object sender,TextChangedEventArgs e) {if(loadingEditor || SelectedProcessing || transcriptView || selected==null) return; editorDirty=true;SetCurrentNote(selected,Editor.Text); autosave.Stop(); autosave.Start();UpdateControls();}
+    private void Copy_Click(object sender,RoutedEventArgs e) {SaveEditor(); var text=transcriptView?selected?.Transcript:CurrentNote(selected); if(!string.IsNullOrEmpty(text)) {System.Windows.Clipboard.SetText(text); Hint.Text="已复制到剪贴板。";}}
     private void Export_Click(object sender,RoutedEventArgs e)
     {
-        SaveEditor(); if(selected==null || string.IsNullOrWhiteSpace(selected.Note)) return; var invalid=Path.GetInvalidFileNameChars(); var name=new string(selected.Title.Select(c=>invalid.Contains(c)?'_':c).ToArray()); var dialog=new Microsoft.Win32.SaveFileDialog {Filter="Markdown 文档|*.md",FileName=name+".md"}; if(dialog.ShowDialog(this)==true) {File.WriteAllText(dialog.FileName,selected.Note,new System.Text.UTF8Encoding(false)); Hint.Text="已导出："+dialog.FileName;}
+        SaveEditor(); if(selected==null || string.IsNullOrWhiteSpace(CurrentNote(selected))) return; var invalid=Path.GetInvalidFileNameChars(); var name=new string(selected.Title.Select(c=>invalid.Contains(c)?'_':c).ToArray()); var dialog=new Microsoft.Win32.SaveFileDialog {Filter="Markdown 文档|*.md",FileName=name+(selected.DirectRefinement?"_精编笔记.md":"_课堂笔记.md")}; if(dialog.ShowDialog(this)==true) {File.WriteAllText(dialog.FileName,CurrentNote(selected)!,new System.Text.UTF8Encoding(false)); Hint.Text="已导出："+dialog.FileName;}
     }
-    private void Cancel_Click(object sender,RoutedEventArgs e)=>processing?.Cancel();
+    private void Cancel_Click(object sender,RoutedEventArgs e) {if(selected!=null&&processingTokens.TryGetValue(selected.Id,out var token))token.Cancel();}
     private void More_Click(object sender,RoutedEventArgs e)
     {
         if(selected==null || busy || recording!=null) return;
         SaveEditor(); var target=selected;
         var popup=new ActionPopup((FrameworkElement)sender);
         popup.Add("回放录音片段", "play", ()=> {var dialog=new PlaybackWindow(target) {Owner=this};dialog.ShowDialog();},target.Parts.Count>0);
-        popup.Add("恢复上一版笔记", "restore", ()=> {var last=target.Versions[^1];target.Versions.RemoveAt(target.Versions.Count-1);target.Versions.Insert(0,target.Note);target.Note=last;store.Save(target);ShowCourse(target);},target.Versions.Count>0);
+        var versions=target.DirectRefinement?target.EnhancedVersions:target.Versions;
+        popup.Add("恢复上一版笔记", "restore", ()=> {var last=versions[^1];versions.RemoveAt(versions.Count-1);versions.Insert(0,CurrentNote(target)??"");SetCurrentNote(target,last);store.Save(target);ShowCourse(target);},versions.Count>0);
         popup.Separator();
         popup.Add("删除课程和录音", "trash", ()=>DeleteCourse(target));
         popup.Open();
@@ -190,13 +276,13 @@ public partial class MainWindow : Window
     internal void Restore() {if(exiting)return;Show(); if(WindowState==WindowState.Minimized)WindowState=WindowState.Normal; Activate(); WindowActivation.SetForegroundWindow(new System.Windows.Interop.WindowInteropHelper(this).Handle); floating.Hide();}
     private async void Exit()
     {
-        if(exiting)return;
+        if(exiting||!LeaveSettings())return;
         if(recording!=null) {await EndWithoutSummary();}
-        if(busy) {processing?.Cancel(); Hint.Text="正在取消处理并保存，请稍后从托盘退出。"; return;}
+        if(busy) {foreach(var token in processingTokens.Values)token.Cancel(); Hint.Text="正在取消处理并保存，请稍后从托盘退出。"; return;}
         SaveEditor(); exiting=true; trayMenu?.Dismiss(); ticker.Stop(); autosave.Stop(); toastTimer.Stop(); floating.Close(); recorder.Dispose(); asr.Dispose(); tray.Dispose(); System.Windows.Application.Current.Shutdown();
     }
     private async Task EndWithoutSummary()
     {
-        SetBusy(true); var course=recording!; recorder.Pause(); await Dispatcher.InvokeAsync(()=>{},DispatcherPriority.Background); queue?.Writer.TryComplete(); recording=null; if(worker!=null) await worker; course.Seconds=recorder.TotalSeconds; course.State="等待整理"; store.Save(course); SetBusy(false);
+        var course=recording!; recorder.Pause(); await Dispatcher.InvokeAsync(()=>{},DispatcherPriority.Background); queue?.Writer.TryComplete(); recording=null; if(worker!=null) await worker; course.Seconds=recorder.TotalSeconds; course.State="等待整理"; store.Save(course);recordingCancellation?.Dispose();recordingCancellation=null;SetBusy(processingCourses.Count>0);
     }
 }

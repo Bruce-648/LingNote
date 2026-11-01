@@ -1,5 +1,8 @@
 #define AppName "LingNote"
-#define AppVersion "0.1.34"
+#define AppVersion "0.2.0"
+#ifndef PublishRoot
+  #define PublishRoot "..\app"
+#endif
 [Setup]
 AppId={{E79C5407-988D-4A79-9061-F1B02C792993}
 AppName={#AppName}
@@ -12,8 +15,8 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
-OutputDir=..\artifacts
-OutputBaseFilename=LingNote-0.1.34-Setup
+OutputDir=..\artifacts\{#AppVersion}
+OutputBaseFilename=LingNote-{#AppVersion}-Setup
 Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern
@@ -26,7 +29,7 @@ Name: "chinesesimp"; MessagesFile: "ChineseSimplified.isl"
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "快捷方式："
 [Files]
-Source: "..\app\*"; DestDir: "{app}"; Excludes: "models\ggml-small.bin,*.download,library-location.json,startup-status.json,settings.json,settings.json.bak,update-settings.json,updates\*,*.db,*.db-wal,*.db-shm,*.pdb,recordings\*,Data\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PublishRoot}\*"; DestDir: "{app}"; Excludes: "models\ggml-small.bin,*.download,library-location.json,startup-status.json,settings.json,settings.json.bak,update-settings.json,updates\*,*.db,*.db-wal,*.db-shm,*.pdb,recordings\*,Data\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\assets\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: NeedsVC
 [Icons]
 Name: "{group}\LingNote"; Filename: "{app}\LingNote.exe"

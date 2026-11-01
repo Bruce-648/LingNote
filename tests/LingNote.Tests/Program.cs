@@ -8,6 +8,10 @@ using System.IO;
 using System.Diagnostics;
 using NAudio.Wave;
 
+if(args.Contains("--topic-gap-review")){await QualityReview.TopicGap();return;}
+if(args.Contains("--readability-review")){await QualityReview.Readability();return;}
+if(args.Contains("--quality-review")){await QualityReview.Run(args.Contains("--short-only"));return;}
+if(args.Contains("--design-review")){SidebarUiChecks.DesignReview(args.Contains("--keep-open"));return;}
 if(args.Contains("--ui-check")) { SidebarUiChecks.Run(); return; }
 if(args.Contains("--floating-preview")) { SidebarUiChecks.Preview(); return; }
 if(args.Contains("--check-update-live")) {using var updateService=new UpdateService();var latest=await updateService.Latest(CancellationToken.None);Console.WriteLine(latest==null?"No published release":$"Latest release: {latest.Version}; verified asset: {latest.FileName}");return;}
@@ -44,34 +48,76 @@ prefs.SaveApi();
 using(var child=Process.Start(new ProcessStartInfo(Environment.ProcessPath!,"--read-settings") {UseShellExecute=false})!) {child.WaitForExit();Check(child.ExitCode==0,"独立新进程重新读取 API 地址、模型与加密密钥");}
 new Preferences {ActiveTopic="另一个主题"}.Save();Check(Preferences.Load().GetKey()=="test-placeholder-only" && Preferences.Load().Model=="test","主题或悬浮窗保存不会覆盖已有 API 配置");
 prefs.SaveApi();File.WriteAllText(Path.Combine(Paths.Root,"settings.json"),"{invalid");Check(Preferences.Load().GetKey()=="test-placeholder-only","配置损坏时从备份恢复，避免静默清空");prefs.SaveApi();prefs.SaveApi();
+Check(NotePrompts.EnhancementRules.Contains("课堂笔记没有提到也可以补充")&&NotePrompts.EnhancementRules.Contains("标题只是录音日期")&&NotePrompts.EnhancementRules.Contains("不要拓展到邻近主题"),"精编以主题组织并允许补齐未提到的核心知识，标题模糊时依内容识别");
+Check(NotePrompts.Segment(true,"测试主题",1,2,"甲","甲；乙").Contains("明显缺少的核心知识点")&&!NotePrompts.Segment(true,"测试主题",2,2,"乙","甲；乙").Contains("这是第一个分段"),"长笔记由首段识别遗漏核心知识，后续段避免重复其他主题");
+Check(NotePrompts.Merge(true,"索引","正文",2,true).Contains("补齐主题内明显缺少的核心知识点")&&NotePrompts.Merge(true,"索引","正文",1,false).Contains("不根据索引猜写其他批次正文"),"完整合并可补齐主题，超长分批只处理自身范围");
+Check(!JsonSerializer.Deserialize<Course>("{}").DirectRefinement&&new Preferences().GenerationMode=="classroom","旧记录和旧设置默认保持课堂笔记模式");
+var directPrompt=NotePrompts.Segment(true,"网络性能",1,1,"[00:00:00] 信道利用率",null,true);
+Check(directPrompt.Contains("<录音转写>")&&directPrompt.Contains("信道利用率")&&NotePrompts.DirectTranscriptRules.Contains("不是需要逐句复述")&&NotePrompts.DirectTranscriptRules.Contains("核心知识点"),"直接精编以转写识别知识范围，不要求逐字复述");
 var original=string.Join("\n",Enumerable.Range(0,1000).Select(i=>$"课程第{i}段：这里保留知识点与数值。")); var parts=NoteService.Split(original,2000);
 Check(parts.All(p=>p.Length<=2001) && string.Concat(parts).Replace("\n","")==original.Replace("\n",""),"长课程分段不丢失尾部和中间内容");
 Check(NoteService.Endpoint("https://example.com/v1/").AbsolutePath=="/v1/chat/completions" && NoteService.Endpoint("https://example.com/v1/chat/completions").AbsolutePath=="/v1/chat/completions","API 地址拼接不重复");
+var thinkingPrefs=new Preferences {BaseUrl="https://api.deepseek.com/v1",Model="deepseek-flash",ThinkingMode="none"};
+using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("reasoning_effort").GetString()=="none","DeepSeek 关闭思考时发送对应参数");
+thinkingPrefs.ThinkingMode="low";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("reasoning_effort").GetString()=="low","DeepSeek 轻度思考使用低强度参数");
+thinkingPrefs.ThinkingMode="max";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("reasoning_effort").GetString()=="max","DeepSeek Max 使用最大思考强度");
+thinkingPrefs.ThinkingMode="default";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(!payload.RootElement.TryGetProperty("reasoning_effort",out _),"默认模式不改变服务端原有行为");
+thinkingPrefs.ThinkingMode="high";thinkingPrefs.BaseUrl="https://example.com/v1";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(!payload.RootElement.TryGetProperty("reasoning_effort",out _),"其他服务不收到 DeepSeek 专用参数");
+thinkingPrefs.BaseUrl="https://api.openai.com/v1";thinkingPrefs.Model="gpt-test";thinkingPrefs.ThinkingMode="low";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("reasoning_effort").GetString()=="low","OpenAI 兼容接口识别并使用思考强度参数");
+thinkingPrefs.BaseUrl="https://generativelanguage.googleapis.com/v1beta/openai/";thinkingPrefs.Model="gemini-test";thinkingPrefs.ThinkingMode="low";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("reasoning_effort").GetString()=="low","Gemini OpenAI 兼容接口识别并使用思考强度参数");
+thinkingPrefs.BaseUrl="https://api.openai.com/v1";thinkingPrefs.ThinkingMode="xhigh";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("reasoning_effort").GetString()=="xhigh","OpenAI 支持按所选值发送 XHigh 思考强度");
+thinkingPrefs.BaseUrl="https://dashscope.aliyuncs.com/compatible-mode/v1";thinkingPrefs.Model="qwen-test";thinkingPrefs.ThinkingMode="none";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(!payload.RootElement.GetProperty("enable_thinking").GetBoolean()&&!payload.RootElement.TryGetProperty("reasoning_effort",out _),"通义兼容接口使用思考开关关闭模式");
+thinkingPrefs.ThinkingMode="high";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("enable_thinking").GetBoolean(),"通义兼容接口可开启思考");
+thinkingPrefs.BaseUrl="https://example.com/v1";thinkingPrefs.ThinkingProtocol="effort";thinkingPrefs.ThinkingMode="max";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("reasoning_effort").GetString()=="max","第三方兼容接口可手动选思考强度协议");
+thinkingPrefs.ThinkingProtocol="toggle";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(payload.RootElement.GetProperty("enable_thinking").GetBoolean()&&!payload.RootElement.TryGetProperty("reasoning_effort",out _),"第三方兼容接口可手动选思考开关协议");
+thinkingPrefs.BaseUrl="https://api.deepseek.com/v1";thinkingPrefs.ThinkingProtocol="disabled";using(var payload=JsonDocument.Parse(NoteService.BuildPayload(thinkingPrefs,"规则","内容")))Check(!payload.RootElement.TryGetProperty("reasoning_effort",out _)&&!payload.RootElement.TryGetProperty("enable_thinking",out _),"不发送选项不会向任何服务附加思考参数");
+prefs.ThinkingMode="low";prefs.ThinkingProtocol="toggle";prefs.GenerationMode="direct";prefs.SaveApi();new Preferences().Save();Check(Preferences.Load().ThinkingMode=="low"&&Preferences.Load().ThinkingProtocol=="toggle"&&Preferences.Load().GenerationMode=="direct","常规设置保存保留思考和笔记生成模式");prefs.ThinkingMode="default";prefs.ThinkingProtocol="auto";prefs.GenerationMode="classroom";prefs.SaveApi();
 // Fail immediately if any request accidentally consults a proxy.
 HttpClient.DefaultProxy=new RejectingProxy();
 async Task<string> Mock(string body,bool stream=true,int status=200) {
     var reserve=new TcpListener(IPAddress.Loopback,0); reserve.Start(); var port=((IPEndPoint)reserve.LocalEndpoint).Port; reserve.Stop();
     using var listener=new HttpListener(); listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start(); prefs.BaseUrl=$"http://127.0.0.1:{port}/v1"; prefs.Stream=stream;
-    var serving=Task.Run(async()=>{var context=await listener.GetContextAsync(); using var reader=new StreamReader(context.Request.InputStream); var input=await reader.ReadToEndAsync(); using var doc=JsonDocument.Parse(input); if(doc.RootElement.GetProperty("model").GetString()!="test") throw new Exception("Model missing"); context.Response.StatusCode=status; context.Response.ContentType=stream?"text/event-stream":"application/json"; var bytes=Encoding.UTF8.GetBytes(body); await context.Response.OutputStream.WriteAsync(bytes); context.Response.Close();});
+    var serving=Task.Run(async()=>{var context=await listener.GetContextAsync(); using var reader=new StreamReader(context.Request.InputStream); var input=await reader.ReadToEndAsync(); using var doc=JsonDocument.Parse(input); if(doc.RootElement.GetProperty("model").GetString()!="test") throw new Exception("Model missing"); if(prefs.ThinkingProtocol=="toggle"&&!doc.RootElement.GetProperty("enable_thinking").GetBoolean())throw new Exception("Thinking toggle missing"); context.Response.StatusCode=status; context.Response.ContentType=stream?"text/event-stream":"application/json"; var bytes=Encoding.UTF8.GetBytes(body); await context.Response.OutputStream.WriteAsync(bytes); context.Response.Close();});
     try {return await new NoteService().Request(prefs,"规则","课程文字",null,CancellationToken.None);} finally {await serving; listener.Stop();}
 }
 Check(await Mock("data: {\"choices\":[{\"delta\":{\"content\":\"# 笔记\"},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"\\n完整内容\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")=="# 笔记\n完整内容","兼容 API 流式内容组装");
 Check(await Mock("{\"choices\":[{\"message\":{\"content\":\"完整笔记\"},\"finish_reason\":\"stop\"}]}",false)=="完整笔记","兼容 API 非流式响应");
+prefs.ThinkingProtocol="toggle";prefs.ThinkingMode="high";
+Check(await Mock("data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"隐藏思考\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"知识正文\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")=="知识正文","思考开关参数随请求发送，流式思考内容不混入笔记正文");
+prefs.ThinkingProtocol="auto";prefs.ThinkingMode="default";
 try {await Mock("data: {\"choices\":[{\"delta\":{\"content\":\"不完整\"},\"finish_reason\":\"length\"}]}\n\n"); throw new Exception("未检测截断");} catch(IOException) {Check(true,"模型长度截断不会误标完成");}
 try {await Mock("data: {\"choices\":[{\"delta\":{\"content\":\"断开\"}}]}\n\n"); throw new Exception("未检测断流");} catch(IOException) {Check(true,"流式中断可重试");}
 try {await Mock("{}",false,401); throw new Exception("未检测认证失败");} catch(HttpRequestException) {Check(true,"API 认证错误提示");}
 {
     var reserve=new TcpListener(IPAddress.Loopback,0); reserve.Start(); int port=((IPEndPoint)reserve.LocalEndpoint).Port; reserve.Stop();
     using var listener=new HttpListener(); listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start(); prefs.BaseUrl=$"http://127.0.0.1:{port}/v1"; prefs.Stream=false; prefs.ChunkCharacters=2000;
-    int calls=0; bool sawTail=false;
-    var server=Task.Run(async()=> {try {while(listener.IsListening) {var ctx=await listener.GetContextAsync(); var number=Interlocked.Increment(ref calls); using var input=new StreamReader(ctx.Request.InputStream); var body=await input.ReadToEndAsync(); using var parsed=JsonDocument.Parse(body); var material=parsed.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!; sawTail|=material.Contains("课程第999段"); if(number==2) ctx.Response.StatusCode=503; var output=Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new {choices=new[]{new{message=new{content=$"## 知识点 {number}\n\n完整段落 {number}"},finish_reason="stop"}}})); ctx.Response.ContentType="application/json"; await ctx.Response.OutputStream.WriteAsync(output); ctx.Response.Close();}} catch(HttpListenerException) {} catch(ObjectDisposedException) {} });
-    var longCourse=new Course(); longCourse.Parts.Add(new AudioPart {Text=original,Done=true}); var service=new NoteService();
+    int calls=0; bool sawTail=false,failedSecond=false;string reconciliation="";var requests=new List<(string System,string User)>();
+    var server=Task.Run(async()=> {try {while(listener.IsListening) {var ctx=await listener.GetContextAsync(); var number=Interlocked.Increment(ref calls); using var input=new StreamReader(ctx.Request.InputStream); var body=await input.ReadToEndAsync(); using var parsed=JsonDocument.Parse(body); var material=parsed.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!; requests.Add((parsed.RootElement.GetProperty("messages")[0].GetProperty("content").GetString()!,material)); sawTail|=material.Contains("课程第999段");if(material.Contains("<课堂笔记分段稿>"))reconciliation=material; if(!failedSecond&&material.Contains("材料范围：第 2 /")){failedSecond=true;ctx.Response.StatusCode=503;} var output=Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new {choices=new[]{new{message=new{content=$"## 知识点 {number}\n\n完整段落 {number}"},finish_reason="stop"}}})); ctx.Response.ContentType="application/json"; await ctx.Response.OutputStream.WriteAsync(output); ctx.Response.Close();}} catch(HttpListenerException) {} catch(ObjectDisposedException) {} });
+    var longCourse=new Course {DraftFingerprint="old-prompt"};longCourse.Drafts.Add("旧提示词草稿"); longCourse.Parts.Add(new AudioPart {Text=original,Done=true}); var service=new NoteService();
     try {await service.Generate(longCourse,prefs,store,new Progress<string>(),_=>{},CancellationToken.None);} catch(HttpRequestException) {}
     Check(longCourse.Drafts.Count==1,"长课程 API 失败时已完成分段持久化");
     var expected=NoteService.Split(longCourse.Transcript,2000).Count; var note=await service.Generate(longCourse,prefs,store,new Progress<string>(),_=>{},CancellationToken.None);
-    Check(calls==expected+1 && longCourse.Drafts.Count==expected && sawTail && note.Contains($"完整段落 {calls}"),"失败重试复用分段结果并保留课程最后一段");
+    Check(calls==expected+2 && longCourse.Drafts.Count==expected && sawTail && note.Contains($"完整段落 {calls}"),"失败重试复用分段结果并保留课程最后一段");
+    Check(longCourse.Drafts.All(d=>reconciliation.Contains(d)),"最终合并接收全部分段草稿，包含首段和尾段");
+    Check(requests.All(r=>r.System.Contains("【当前任务：课堂笔记】")&&r.System.Contains("【材料边界】")&&!r.System.Contains("【当前任务：完善笔记】"))&&requests.Any(r=>r.User.Contains("任务：整理课堂笔记")&&r.User.Contains("材料范围：第 1 / ")),"课堂请求使用新版共同规则、专用规则和分段模板");
+    Check(reconciliation.Contains("任务：合并课堂笔记分段稿")&&reconciliation.Contains("不声称已经回查录音")&&!note.Contains("旧提示词草稿"),"课堂合并使用专用模板且提示词升级清除旧草稿缓存");
     listener.Stop(); await server;
 }
+{
+    var reserve=new TcpListener(IPAddress.Loopback,0);reserve.Start();var port=((IPEndPoint)reserve.LocalEndpoint).Port;reserve.Stop();
+    using var listener=new HttpListener();listener.Prefixes.Add($"http://127.0.0.1:{port}/");listener.Start();prefs.BaseUrl=$"http://127.0.0.1:{port}/v1";prefs.Stream=false;prefs.ChunkCharacters=2000;
+    var enhancedRequests=new System.Collections.Concurrent.ConcurrentBag<(string System,string User)>();
+    async Task Reply(HttpListenerContext context,string text){using(var reader=new StreamReader(context.Request.InputStream)){using var doc=JsonDocument.Parse(await reader.ReadToEndAsync());var messages=doc.RootElement.GetProperty("messages");enhancedRequests.Add((messages[0].GetProperty("content").GetString()!,messages[1].GetProperty("content").GetString()!));}var bytes=JsonSerializer.SerializeToUtf8Bytes(new {choices=new[]{new {message=new {content=text},finish_reason="stop"}}});context.Response.ContentType="application/json";context.Response.ContentLength64=bytes.Length;await context.Response.OutputStream.WriteAsync(bytes);context.Response.Close();}
+    bool overlapping=false;
+    var server=Task.Run(async()=>{var first=await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(8));var second=await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(8));overlapping=true;await Task.WhenAll(Reply(first,"## 主题甲\n\n首段内容"),Reply(second,"## 主题乙\n\n末段内容"));await Reply(await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(8)),"## 校订结果\n\n首段内容与末段内容");});
+    var courseForSpeed=new Course {Title="主题 {{总段数}}",Note="## 原有主题\n"+new string('甲',1900)+"\n"+new string('乙',700),EnhancedFingerprint="old-prompt"};courseForSpeed.EnhancedDrafts.Add("旧完善草稿");var snapshots=new List<string>();using var limit=new CancellationTokenSource(TimeSpan.FromSeconds(10));
+    var enhanced=await new NoteService().Enhance(courseForSpeed,prefs,null,new Progress<string>(),limit.Token,s=>{lock(snapshots)snapshots.Add(s);});await server;
+    Check(overlapping&&courseForSpeed.EnhancedDrafts.Count==2,"同一篇长笔记的两段请求并行发送并按原顺序保存");
+    Check(enhanced.Contains("首段内容")&&enhanced.Contains("末段内容")&&snapshots.Count>0,"并行草稿显示后继续合并，首尾信息保留");
+    Check(enhancedRequests.All(r=>r.System.Contains("【当前任务：完善笔记】")&&r.System.Contains("【材料边界】")&&!r.System.Contains("【当前任务：课堂笔记】"))&&enhancedRequests.Count(r=>r.User.Contains("任务：完善笔记")&&r.User.Replace("\r", "").Contains("<全文主题索引>\n原有主题")&&r.User.Contains("主题：主题 {{总段数}}"))==2,"完善请求使用新版专用规则、真实全文索引，材料不被当作模板再次替换");
+    Check(enhancedRequests.Any(r=>r.User.Contains("任务：合并完善笔记分段稿")&&r.User.Contains("<完善笔记分段稿>"))&&!enhanced.Contains("旧完善草稿"),"完善合并使用独立模板，升级后不复用旧草稿");
+}
+await NoteEditingChecks.Run(Check,store);
 if(args.Contains("--audio")) {
     var recorded=new List<AudioPart>(); using var recorder=new AudioRecorder(); var folder=Path.Combine(Paths.Root,"capture"); recorder.PartReady+=p=>recorded.Add(p);
     recorder.Begin(folder); await Task.Delay(1500); recorder.Pause(); var first=recorder.TotalSeconds; await Task.Delay(600); recorder.Resume(); await Task.Delay(1500); recorder.Pause();

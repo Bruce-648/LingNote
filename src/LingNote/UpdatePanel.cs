@@ -6,7 +6,7 @@ using System.Windows.Media;
 namespace LingNote;
 public sealed class UpdatePanel : StackPanel
 {
-    private readonly TextBlock status=new() {TextWrapping=TextWrapping.Wrap,Foreground=Brushes.Gray,Margin=new Thickness(0,10,0,0),FontSize=12};
+    private readonly TextBlock status=new() {TextWrapping=TextWrapping.Wrap,Foreground=Brushes.Gray,Margin=new Thickness(0,10,0,0),FontSize=14};
     private readonly TextBox notes=new() {IsReadOnly=true,TextWrapping=TextWrapping.Wrap,MaxHeight=140,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,Visibility=Visibility.Collapsed,Margin=new Thickness(0,12,0,0)};
     private readonly Button check=new() {Content="检查更新",Margin=new Thickness(0,12,8,0)};
     private readonly Button action=new() {Content="下载更新",Visibility=Visibility.Collapsed,Margin=new Thickness(0,12,8,0)};
@@ -17,11 +17,11 @@ public sealed class UpdatePanel : StackPanel
     public bool IsDownloading {get;private set;}
     public UpdatePanel(Action<string,string> install)
     {
-        Children.Add(new TextBlock {Text="应用更新",FontSize=16,FontWeight=FontWeights.SemiBold});
-        Children.Add(new TextBlock {Text="当前版本 "+UpdateService.DisplayVersion,Foreground=Brushes.Gray,Margin=new Thickness(0,12,0,0),FontSize=12});
+        var heading=new DockPanel();DockPanel.SetDock(check,Dock.Right);check.Margin=new Thickness(0);check.Height=42;check.Padding=new Thickness(28,10,28,10);heading.Children.Add(check);heading.Children.Add(new TextBlock {Text="应用更新",FontSize=24,FontWeight=FontWeights.SemiBold});Children.Add(heading);
+        Children.Add(new TextBlock {Text="当前版本 "+UpdateService.DisplayVersion,Foreground=Brushes.Gray,Margin=new Thickness(0,12,0,0),FontSize=14});
         var options=UpdatePreferences.Load();var auto=new CheckBox {Content="启动时自动检查更新",IsChecked=options.AutoCheck,Margin=new Thickness(0,12,0,0)};Children.Add(auto);
         auto.Checked+=(_,_)=>{options.AutoCheck=true;options.Save();};auto.Unchecked+=(_,_)=>{options.AutoCheck=false;options.Save();};
-        var buttons=new WrapPanel();buttons.Children.Add(check);buttons.Children.Add(action);buttons.Children.Add(cancel);Children.Add(buttons);Children.Add(status);Children.Add(notes);
+        var buttons=new WrapPanel();buttons.Children.Add(action);buttons.Children.Add(cancel);Children.Add(buttons);Children.Add(status);Children.Add(notes);
         check.Click+=async(_,_)=>{
             check.IsEnabled=false;action.Visibility=Visibility.Collapsed;notes.Visibility=Visibility.Collapsed;installer=null;release=null;status.Text="正在检查 GitHub 上的新版本…";cancellation=new();
             try {using var service=new UpdateService();release=await service.Latest(cancellation.Token);options.LastCheck=DateTimeOffset.UtcNow;options.Save();
