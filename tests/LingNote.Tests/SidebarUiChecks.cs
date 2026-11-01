@@ -298,15 +298,15 @@ internal static class SidebarUiChecks
         var collapse=Visuals<Button>(floating).Single(b=>b.ToolTip?.ToString()=="收起悬浮条");
         Check(collapse.Opacity>.9&&collapse.IsHitTestVisible,"悬浮条悬停显示圆形减号按钮");Snapshot(floating,"artifacts/floating-expanded-ui-check.png");
         var widths=new List<double>();var descriptor=System.ComponentModel.DependencyPropertyDescriptor.FromProperty(Window.WidthProperty,typeof(FloatingBar));EventHandler changed=(_,_)=>widths.Add(floating.Width);descriptor.AddValueChanged(floating,changed);
-        floating.SetCompact(true);Wait(400);descriptor.RemoveValueChanged(floating,changed);Check(widths.Any(w=>w>80&&w<430),"收起动画宽度连续变化");
-        Check(floating.IsCompact&&Math.Abs(floating.Width-80)<1,"悬浮条平滑收成圆形");Snapshot(floating,"artifacts/floating-compact-ui-check.png");
+        floating.SetCompact(true);Wait(400);descriptor.RemoveValueChanged(floating,changed);Check(widths.Any(w=>w>64&&w<330),"收起动画宽度连续变化");
+        Check(floating.IsCompact&&Math.Abs(floating.Width-64)<1,"悬浮条平滑收成圆形");Snapshot(floating,"artifacts/floating-compact-ui-check.png");
         var compactGhost=Visuals<GhostMascot>(floating).Single();Check(compactGhost.IsBlinking,"录音状态的小幽灵开启眨眼");
         var frames=new HashSet<string>();for(int i=0;i<70;i++){Wait(60);frames.Add(FrameHash(compactGhost));}
         Check(frames.Count>1,"小幽灵在实际绘制帧中发生眨眼变化");
         floating.Update(13,0,true);Wait(150);var pausedFrame=FrameHash(compactGhost);Wait(400);
         Check(!compactGhost.IsBlinking&&FrameHash(compactGhost)==pausedFrame,"暂停后幽灵停止眨眼并保持睁眼静止");Snapshot(floating,"artifacts/floating-paused-ui-check.png");
         floating.Update(14,.1f,false);Check(compactGhost.IsBlinking,"恢复录音后重新眨眼");
-        floating.SetCompact(false);Wait(340);Check(!floating.IsCompact&&Math.Abs(floating.Width-430)<1,"圆形可展开恢复全部录音控制");floating.Hide();Invoke("Exit");
+        floating.SetCompact(false);Wait(340);Check(!floating.IsCompact&&Math.Abs(floating.Width-330)<1,"圆形可展开恢复全部录音控制");floating.Hide();Invoke("Exit");
     }
     private static void Pump(){var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>frame.Continue=false));Dispatcher.PushFrame(frame);}
     private static void Wait(int milliseconds){var frame=new DispatcherFrame();var timer=new DispatcherTimer {Interval=TimeSpan.FromMilliseconds(milliseconds)};timer.Tick+=(_,_)=>{timer.Stop();frame.Continue=false;};timer.Start();Dispatcher.PushFrame(frame);}
