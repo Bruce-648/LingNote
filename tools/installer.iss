@@ -1,6 +1,6 @@
 #define AppName "LingNote"
 #ifndef AppVersion
-#define AppVersion "0.3.1"
+#define AppVersion "0.3.2"
 #endif
 #ifndef PublishRoot
   #define PublishRoot "..\app"
@@ -9,6 +9,7 @@
 AppId={{E79C5407-988D-4A79-9061-F1B02C792993}
 AppName={#AppName}
 AppVersion={#AppVersion}
+VersionInfoVersion={#AppVersion}
 AppPublisher=LingNote
 DefaultDirName={localappdata}\Programs\LingNote
 DefaultGroupName=LingNote

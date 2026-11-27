@@ -43,6 +43,82 @@ internal static class BulkDeletionChecks
         Invoke("BeginBulkSelection","unassigned","","未分区");Click(Field<Button>("BulkAll"));Invoke("BulkCancel_Click",window,new RoutedEventArgs());Verify(Field<Border>("BulkBar").Visibility==Visibility.Collapsed&&Field<HashSet<string>>("bulkSelected").Count==0,"取消批量模式隐藏复选框并清空选择");
         Invoke("BeginBulkSelection","topic","其他主题","其他主题");Pump();var topicCheck=Visuals<CheckBox>(Field<StackPanel>("EmptyTopics")).Single(c=>c.DataContext is Course record&&record.Id==other.Id);topicCheck.IsChecked=true;Pump();Verify(Field<HashSet<string>>("bulkSelected").SetEquals([other.Id]),"主题列表复选框正确勾选指定录音");Invoke("BulkCancel_Click",window,new RoutedEventArgs());
         Invoke("ShowCourse",unassigned[17]);Invoke("BeginBulkSelection","unassigned","","未分区");Field<HashSet<string>>("bulkSelected").Add(unassigned[17].Id);Invoke("CommitBulkDeletion",(object)new[]{unassigned[17].Id});Verify(Field<Course?>("selected")==null&&Field<TextBox>("TitleBox").Text=="新录音"&&Field<TextBlock>("TimerLabel").Text=="00:00:00","删除当前笔记后清空正文并恢复新录音状态");
+        var classroom=Make("同名:课程","计算机网络",order:90);
+        classroom.EnhancedNote="";
+        store.Save(classroom);
+        var secondClassroom=Make("同名:课程","计算机网络",order:89);
+        secondClassroom.EnhancedNote="";
+        store.Save(secondClassroom);
+        var direct=Make("直接精编",sectionId:section.Id,order:88);
+        direct.DirectRefinement=true;
+        direct.Note="";
+        store.Save(direct);
+        var blank=Make("尚无笔记",sectionId:section.Id,order:87);
+        blank.Note=blank.EnhancedNote="";
+        store.Save(blank);
+        Invoke("ShowCourse",classroom);
+        var editor=Field<RichTextBox>("Preview");
+        editor.Document.Blocks.Add(new System.Windows.Documents.Paragraph(new System.Windows.Documents.Run("导出前保存的编辑")));
+        Invoke("BeginBulkSelection","section",section.Id,section.Name);
+        var bulkExport=Field<Button>("BulkExport");
+        Verify(!bulkExport.IsEnabled,"空选择禁用批量导出");
+        Click(Field<Button>("BulkAll"));
+        Verify(bulkExport.IsVisible&&bulkExport.IsEnabled,"分区全选后显示可用的导出入口");
+
+        var destination=Path.Combine(Paths.Root,"exports");
+        var topicDestination=Path.Combine(destination,section.Name,"计算机网络");
+        Directory.CreateDirectory(topicDestination);
+        var existingPath=Path.Combine(topicDestination,"同名_课程_课堂笔记.md");
+        File.WriteAllText(existingPath,"保留已有文件");
+        Exception? exportError=null;
+        Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(async ()=>{
+            var dialog=app.Windows.OfType<BulkNoteExportWindow>().Single();
+            try
+            {
+                bool IsDisplayed(string text)=>Visuals<TextBlock>(dialog).Any(block=>block.Text.Contains(text));
+                var kinds=Visuals<CheckBox>(dialog).ToArray();
+                var export=Visuals<Button>(dialog).Single(button=>Equals(button.Content,"导出"));
+                Verify(kinds.All(kind=>kind.IsChecked==true)&&!export.IsEnabled&&IsDisplayed("预计导出 3 个"),"两类笔记默认勾选，选目录前禁用导出");
+                kinds.Single(kind=>Equals(kind.Content,"课堂笔记")).IsChecked=false;
+                Verify(IsDisplayed("预计导出 1 个")&&IsDisplayed("3 条录音没有"),"勾选类型会更新预估及跳过数量");
+                kinds.Single(kind=>Equals(kind.Content,"课堂笔记")).IsChecked=true;
+                dialog.SetDestination(destination);
+                Pump();
+                Verify(export.IsEnabled&&IsDisplayed(destination),"选择目标文件夹后显示路径并启用导出");
+                Directory.CreateDirectory("artifacts/bulk-export");
+                Snapshot(dialog,"artifacts/bulk-export/options.png");
+                Click(export);
+                var timeout=System.Diagnostics.Stopwatch.StartNew();
+                while(!IsDisplayed("已导出")&&timeout.ElapsedMilliseconds<5000)await Task.Delay(20);
+                Verify(IsDisplayed("已导出 3 个文件，跳过 1 条录音")&&Visuals<Button>(dialog).Any(button=>button.IsVisible&&Equals(button.Content,"打开文件夹")),"导出完成显示结果和打开文件夹的入口");
+                Snapshot(dialog,"artifacts/bulk-export/result.png");
+            }
+            catch(Exception error){exportError=error;}
+            finally{dialog.Close();}
+        }));
+        Click(bulkExport);
+        if(exportError!=null)throw exportError;
+        Verify(File.ReadAllText(existingPath)=="保留已有文件"&&File.ReadAllText(Path.Combine(topicDestination,"同名_课程_课堂笔记 (2).md")).Contains("导出前保存的编辑")&&File.Exists(Path.Combine(topicDestination,"同名_课程_课堂笔记 (3).md")),"导出当前编辑，保留已有文件并自动编号");
+        Verify(File.ReadAllText(Path.Combine(destination,section.Name,"直接精编_精编笔记.md"))==direct.EnhancedNote&&Directory.GetFiles(destination,"*.md",SearchOption.AllDirectories).Length==4,"按分区和主题保存 Markdown，直接精编只导出精编稿");
+        Verify(store.All().Any(course=>course.Id==blank.Id)&&File.Exists(Path.Combine(direct.Folder,"audio-test.dat"))&&Field<HashSet<string>>("bulkSelected").Count==4,"导出保留原录音和当前勾选");
+
+        var partialRoot=Path.Combine(Paths.Root,"partial-export");
+        Directory.CreateDirectory(partialRoot);
+        File.WriteAllText(Path.Combine(partialRoot,section.Name),"占用分区目录名");
+        var planned=BulkNoteExport.Collect([direct,new Course{Title="未分区",Note="可导出的正文"}],prefs);
+        var partial=BulkNoteExport.Write(partialRoot,planned);
+        Verify(partial.Written==1&&partial.Failures.Count==1&&File.Exists(Path.Combine(partialRoot,"未分区","未分区_课堂笔记.md"))&&!Directory.EnumerateFiles(partialRoot,"*.tmp",SearchOption.AllDirectories).Any(),"单个路径写入失败后继续导出其他笔记");
+
         Field<System.Windows.Forms.NotifyIcon>("tray").Dispose();Field<FloatingBar>("floating").Close();Set("exiting",true);window.Close();app.Shutdown();
+    }
+
+    private static void Snapshot(Window window,string path)
+    {
+        var bitmap=new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth),(int)Math.Ceiling(window.ActualHeight),96,96,PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        var encoder=new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var file=File.Create(path);
+        encoder.Save(file);
     }
 }

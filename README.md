@@ -5,13 +5,13 @@
   <p><strong>让声音，成为随时可查的笔记。</strong></p>
   <p>系统录音 · 本地转写 · AI 整理</p>
   <p>
-    <img src="assets/badges/version.svg" alt="版本 0.3.1" />
+    <img src="assets/badges/version.svg" alt="版本 0.3.2" />
     <img src="https://img.shields.io/badge/platform-Windows_11_x64-0078D4?style=flat-square" alt="Windows 11 x64" />
   </p>
   <p>
     <a href="https://github.com/Bruce-648/LingNote/releases"><strong>版本下载</strong></a>
     · <a href="#快速开始">快速开始</a>
-    · <a href="assets/RELEASE-NOTES-0.3.1.md">0.3.1 更新说明</a>
+    · <a href="assets/RELEASE-NOTES-0.3.2.md">0.3.2 更新说明</a>
     · <a href="https://github.com/Bruce-648/LingNote/issues">反馈问题</a>
   </p>
 </div>
@@ -20,7 +20,7 @@
 
 **LingNote** 是一款轻量的 Windows 桌面录音与 AI 笔记工具。录下电脑播放的声音，在本地用 Whisper 转写，再通过你配置的 AI 接口生成可编辑、复制和导出的笔记。
 
-适合整理线上课程、讲座、会议回顾、访谈、播客和直播。当前源码版本为 **0.3.1**，界面以简体中文为主。
+适合整理线上课程、讲座、会议回顾、访谈、播客和直播。当前源码版本为 **0.3.2**，界面以简体中文为主。
 
 ## 界面预览
 
@@ -64,7 +64,7 @@
 
 ## 快速开始
 
-1. 从 **[Releases](https://github.com/Bruce-648/LingNote/releases)** 获取已发布的安装包。已有本地构建时，可使用 `artifacts/0.3.1/LingNote-0.3.1-Setup.exe`，或直接运行 `app/LingNote.exe`。
+1. 从 **[Releases](https://github.com/Bruce-648/LingNote/releases)** 获取已发布的安装包。已有本地构建时，可使用 `artifacts/0.3.2/LingNote-0.3.2-Setup.exe`，或直接运行 `app/LingNote.exe`。
 2. 打开 **设置 → 本地语音模型**，下载或导入 Whisper small 多语言模型，约 **466 MB**。安装包不包含模型，只需准备一次。
 3. 在 **设置 → AI 连接** 中填写兼容 OpenAI Chat Completions 的接口地址、模型名称和 API Key，点击「保存」与「测试连接」。
 4. 播放需要记录的内容，点击「新录音」，再点击「开始录音」。

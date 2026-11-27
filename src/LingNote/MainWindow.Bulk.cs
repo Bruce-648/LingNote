@@ -36,7 +36,7 @@ public partial class MainWindow
         if(check.DataContext is not Course course)return;
         bool previous=updatingBulk;updatingBulk=true;
         check.Visibility=InBulkScope(course)?Visibility.Visible:Visibility.Collapsed;check.IsEnabled=BulkEligible(course);check.IsChecked=bulkSelected.Contains(course.Id)&&check.IsEnabled;
-        check.ToolTip=check.IsEnabled?"选择录音："+course.Title:"正在录音或处理中，不能批量删除";System.Windows.Automation.AutomationProperties.SetName(check,"选择录音："+course.Title);updatingBulk=previous;
+        check.ToolTip=check.IsEnabled?"选择录音："+course.Title:"正在录音或处理中，暂不可选";System.Windows.Automation.AutomationProperties.SetName(check,"选择录音："+course.Title);updatingBulk=previous;
     }
     private void BulkCheck_Preview(object sender,MouseButtonEventArgs e)
     {
@@ -51,7 +51,7 @@ public partial class MainWindow
     {
         if(BulkBar==null)return;
         BulkBar.Visibility=bulkKind==null?Visibility.Collapsed:Visibility.Visible;
-        if(bulkKind!=null){var available=BulkCandidates().Select(c=>c.Id).ToHashSet();bulkSelected.IntersectWith(available);BulkSummary.Text=bulkLabel+" · 已选 "+bulkSelected.Count+" 条";BulkDelete.IsEnabled=bulkSelected.Count>0;BulkAll.IsEnabled=available.Count>0;BulkAll.Content=available.Count>0&&available.SetEquals(bulkSelected)?"清空":"全选";}
+        if(bulkKind!=null){var available=BulkCandidates().Select(c=>c.Id).ToHashSet();bulkSelected.IntersectWith(available);BulkSummary.Text=bulkLabel+" · 已选 "+bulkSelected.Count+" 条";BulkExport.IsEnabled=BulkDelete.IsEnabled=bulkSelected.Count>0;BulkAll.IsEnabled=available.Count>0;BulkAll.Content=available.Count>0&&available.SetEquals(bulkSelected)?"清空":"全选";}
         foreach(var check in bulkChecks.ToArray())UpdateBulkCheck(check);
     }
     private void BulkAll_Click(object sender,RoutedEventArgs e)
@@ -59,6 +59,16 @@ public partial class MainWindow
         var available=BulkCandidates().Select(c=>c.Id).ToHashSet();if(available.SetEquals(bulkSelected))bulkSelected.Clear();else bulkSelected.UnionWith(available);UpdateBulkSelection();
     }
     private void BulkCancel_Click(object sender,RoutedEventArgs e)=>EndBulkSelection();
+    private void BulkExport_Click(object sender,RoutedEventArgs e)
+    {
+        SaveEditor();
+        var courses=BulkCandidates().Where(course=>bulkSelected.Contains(course.Id)).ToArray();
+        if(courses.Length==0){UpdateBulkSelection();return;}
+        var notes=BulkNoteExport.Collect(courses,prefs);
+        var dialog=new BulkNoteExportWindow(courses.Length,notes){Owner=this};
+        dialog.ShowDialog();
+        UpdateControls();
+    }
     private void BulkDelete_Click(object sender,RoutedEventArgs e)
     {
         UpdateBulkSelection();var ids=bulkSelected.ToArray();if(ids.Length==0)return;

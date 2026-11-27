@@ -98,6 +98,24 @@ internal static class SidebarUiChecks
         var topLeft=window.PointToScreen(new Point(0,0));var bottomRight=window.PointToScreen(new Point(window.ActualWidth,window.ActualHeight));
         Check(topLeft.X>=screen.Left-2&&topLeft.Y>=screen.Top-2&&bottomRight.X<=screen.Right+2&&bottomRight.Y<=screen.Bottom+2,"最大化窗口保持在当前显示器工作区内，不覆盖任务栏");
         window.WindowState=WindowState.Normal;Wait(150);Check(window.WindowState==WindowState.Normal&&window.ActualWidth<screen.Width,"最大化后可正常还原窗口");
+        var sidebarScroll=Field<ScrollViewer>("SidebarScroll");
+        var sidebarBar=Visuals<System.Windows.Controls.Primitives.ScrollBar>(sidebarScroll)
+            .Single(bar=>bar.Orientation==Orientation.Vertical&&bar.IsVisible);
+        var sidebarThumb=Visuals<System.Windows.Controls.Primitives.Thumb>(sidebarBar).Single();
+        Check(Math.Abs(sidebarBar.ActualWidth-8)<1&&
+              !Visuals<System.Windows.Controls.Primitives.RepeatButton>(sidebarBar).Any(button=>button.Command==System.Windows.Controls.Primitives.ScrollBar.LineUpCommand||button.Command==System.Windows.Controls.Primitives.ScrollBar.LineDownCommand),
+              "侧栏溢出时只显示 8 个逻辑像素宽的滚动条和滑块，无上下箭头");
+        sidebarScroll.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice,0,-120){RoutedEvent=System.Windows.Input.Mouse.PreviewMouseWheelEvent});
+        Wait(80);
+        Check(sidebarScroll.VerticalOffset>0,"侧栏鼠标滚轮可滚动");
+        sidebarScroll.ScrollToTop();
+        Wait(80);
+        sidebarThumb.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0,0){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragStartedEvent});
+        sidebarThumb.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0,25){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragDeltaEvent});
+        sidebarThumb.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(0,25,false){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragCompletedEvent});
+        Wait(80);
+        Check(sidebarScroll.VerticalOffset>0,"侧栏细滑块可拖动滚动");
+        sidebarScroll.ScrollToTop();
         var history=Field<ListBox>("History");
         Check(history.Items.Count==15,"未分区默认只显示15条");Click(Field<Button>("UnassignedExpand"));Check(history.Items.Count==16,"展开未分区显示所有记录");
         Click(Field<Button>("UnassignedExpand"));Check(history.Items.Count==15,"未分区可以重新收起");
@@ -239,6 +257,7 @@ internal static class SidebarUiChecks
         Check(calls==3&&!string.IsNullOrWhiteSpace(enhanced.EnhancedNote)&&enhanced.Note==regenerated.Note,"右侧单独生成完善笔记并保留左侧课堂笔记");
         var right=Field<RichTextBox>("EnhancedPreview");right.Document.Blocks.Add(new Paragraph(new Run("右栏独立修改")));Wait(800);
         Check(store.All().Single(c=>c.Id==editable.Id).EnhancedNote.Contains("右栏独立修改")&&!store.All().Single(c=>c.Id==editable.Id).Note.Contains("右栏独立修改"),"两栏直接编辑分别自动保存且互不覆盖");
+        CheckRegenerateIcon(Field<Button>("EnhanceButton"));
         Snapshot(window,"artifacts/dual-notes-ui-check.png");
         var automatic=new Course {Title="自动双版本"};automatic.Parts.Add(new AudioPart {Text="计算机网络性能指标包括速率和带宽。",Done=true});store.Save(automatic);Show(automatic);
         var autoTask=(Task)run.Invoke(window,[automatic,false,null,null])!;deadline.Restart();while(!autoTask.IsCompleted&&deadline.ElapsedMilliseconds<10000)Pump();
@@ -257,8 +276,17 @@ internal static class SidebarUiChecks
         Check(calls==6&&string.IsNullOrWhiteSpace(directSaved.Note)&&directSaved.EnhancedNote.Contains("重新整理结果")&&directSaved.DirectRefinement,"直接模式重试只生成精编笔记并保留转写");
         Check(directSystem.Contains("【输入类型：录音转写】")&&directUser.Contains("<录音转写>")&&directUser.Contains("网络时延")&&!directUser.Contains("<课堂笔记>"),"直接模式请求发送转写线索和独立主题整理规则");
         Check(Field<Button>("NoteTab").Content.ToString()=="笔记"&&Field<Border>("EnhancedPane").Visibility==Visibility.Collapsed&&Field<Button>("OpenEnhanceButton").Visibility==Visibility.Collapsed,"直接模式以单栏精编笔记显示，不出现空课堂栏");
+        CheckRegenerateIcon(Field<Button>("RegenerateButton"));
         rich.Document.Blocks.Add(new Paragraph(new Run("直接精编编辑")));Invoke("SaveEditor");Check(store.All().Single(c=>c.Id==directRecord.Id).EnhancedNote.Contains("直接精编编辑")&&string.IsNullOrEmpty(store.All().Single(c=>c.Id==directRecord.Id).Note),"直接模式编辑写入精编笔记而非课堂笔记");
         Check(server.IsCompletedSuccessfully,"本机模拟 AI 服务正常结束，无真实 API 请求");
+        void CheckRegenerateIcon(Button button)
+        {
+            const string title="重新精编笔记";
+            Check(Visuals<System.Windows.Shapes.Path>(button).Any(path=>path.IsVisible)&&
+                  !Visuals<TextBlock>(button).Any(text=>text.IsVisible&&text.Text==title)&&
+                  Equals(button.ToolTip,title)&&System.Windows.Automation.AutomationProperties.GetName(button)==title,
+                  "重新精编使用纯图标，保留悬停提示和辅助功能名称");
+        }
         listener.Close();
         var parallelListener=new System.Net.HttpListener();var reserveParallel=new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback,0);reserveParallel.Start();var parallelPort=((System.Net.IPEndPoint)reserveParallel.LocalEndpoint).Port;reserveParallel.Stop();parallelListener.Prefixes.Add($"http://127.0.0.1:{parallelPort}/");parallelListener.Start();
         apiPrefs.BaseUrl=$"http://127.0.0.1:{parallelPort}/v1";apiPrefs.Stream=true;apiPrefs.SaveApi();

@@ -5,13 +5,13 @@
   <p><strong>Turn audio into notes you can revisit.</strong></p>
   <p>System audio recording · Local transcription · AI notes</p>
   <p>
-    <img src="assets/badges/version.svg" alt="Version 0.3.1" />
+    <img src="assets/badges/version.svg" alt="Version 0.3.2" />
     <img src="https://img.shields.io/badge/platform-Windows_11_x64-0078D4?style=flat-square" alt="Windows 11 x64" />
   </p>
   <p>
     <a href="https://github.com/Bruce-648/LingNote/releases"><strong>Releases</strong></a>
     · <a href="#quick-start">Quick start</a>
-    · <a href="assets/RELEASE-NOTES-0.3.1.md">0.3.1 release notes</a>
+    · <a href="assets/RELEASE-NOTES-0.3.2.md">0.3.2 release notes</a>
     · <a href="https://github.com/Bruce-648/LingNote/issues">Report an issue</a>
   </p>
 </div>
@@ -20,7 +20,7 @@
 
 **LingNote** is a lightweight Windows desktop app for recording audio and creating AI notes. Capture audio playing on your computer, transcribe it locally with Whisper, and use your configured AI endpoint to create notes you can edit, copy, and export.
 
-Use it for online courses, lectures, meeting reviews, interviews, podcasts, and livestreams. The current source version is **0.3.1**. The app's interface is primarily in Simplified Chinese; Chinese labels below help you find the corresponding controls.
+Use it for online courses, lectures, meeting reviews, interviews, podcasts, and livestreams. The current source version is **0.3.2**. The app's interface is primarily in Simplified Chinese; Chinese labels below help you find the corresponding controls.
 
 ## Screenshots
 
@@ -65,7 +65,7 @@ Screenshots use isolated demo data and contain no personal recordings.
 
 ## Quick start
 
-1. Get a published installer from **[Releases](https://github.com/Bruce-648/LingNote/releases)**. If you already have a local build, use `artifacts/0.3.1/LingNote-0.3.1-Setup.exe` or run `app/LingNote.exe` directly.
+1. Get a published installer from **[Releases](https://github.com/Bruce-648/LingNote/releases)**. If you already have a local build, use `artifacts/0.3.2/LingNote-0.3.2-Setup.exe` or run `app/LingNote.exe` directly.
 2. Open **Settings (设置) → Local speech model (本地语音模型)** to download or import the multilingual Whisper small model, around **466 MB**. The installer does not include the model; it only needs to be prepared once.
 3. Under **Settings (设置) → AI connection (AI 连接)**, enter an OpenAI Chat Completions-compatible endpoint, model name, and API key. Click **Save (保存)** and **Test connection (测试连接)**.
 4. Play the content you want to capture. Click **New recording (新录音)**, then **Start recording (开始录音)**.
